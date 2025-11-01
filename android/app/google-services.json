@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "192909758501",
+    "project_id": "otptest1-cbe83",
+    "storage_bucket": "otptest1-cbe83.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:192909758501:android:0d216829daceeca0caefcc",
+        "android_client_info": {
+          "package_name": "com.daari.chalaka"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDJ3hk2gIcpMA2qHeWEZrb5RghPeVC4fvk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
