@@ -1,13 +1,10 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'controllers/trip_controller.dart';
+import 'package:geolocator/geolocator.dart';
 import 'widgets/search_place_widget.dart';
 import 'widgets/trip_control_buttons.dart';
-import 'widgets/map_utility_buttons.dart';
-import 'widgets/route_info_card.dart';
-import 'widgets/resume_trip_dialog.dart';
 import 'widgets/status_widget.dart';
+import 'group_service.dart';
 import 'main.dart'; // For storageService
 
 class GroupDetailsPage extends StatefulWidget {
@@ -33,53 +30,23 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
   GoogleMapController? _mapController;
   final LatLng _karnatakaCenter = const LatLng(12.9716, 77.5946); // Bengaluru
 
-  // Controller for managing trip logic (pass storage service)
-  late final TripController _tripController;
+  // Location state for parent app (view-only)
+  LatLng? _pickedLocation;
+  LatLng? _currentLocation;
+  Set<Marker> _markers = {};
+  Set<Polyline> _polylines = {};
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
-    // Initialize TripController with storage service
-    _tripController = TripController(storageService);
-
-    _tripController.getCurrentLocation();
     _initializeDestination();
-
-    // Check for incomplete trips after frame is built
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _checkForIncompleteTrip();
-    });
-  }
-
-  /// Check if there's an incomplete trip and ask user to resume
-  Future<void> _checkForIncompleteTrip() async {
-    if (_tripController.hasIncompleteTrip()) {
-      await ResumeTripDialog.show(
-        context: context,
-        tripController: _tripController,
-        onResume: () async {
-          await _tripController.resumeTrip();
-          _showSnackBar('[RESUME] Trip resumed successfully');
-        },
-        onDiscard: () async {
-          await _tripController.discardIncompleteTrip();
-          _showSnackBar('[RESUME] Incomplete trip discarded');
-        },
-      );
-    }
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // When app comes to foreground, check and sync unsynced points
-    if (state == AppLifecycleState.resumed) {
-      debugPrint(
-        '[APP LIFECYCLE] App resumed in GroupDetailsPage - triggering sync check',
-      );
-      _tripController.checkAndSyncUnsyncedPoints();
-    }
+    // Parent app doesn't need to sync trip points
   }
 
   /// Initialize destination from stored coordinates
@@ -93,24 +60,52 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
       // Only use coordinates if they are not both zero
       if (lat != 0.0 || lng != 0.0) {
         final destination = LatLng(lat, lng);
-        _tripController.setPickedLocation(destination);
+        _pickedLocation = destination;
+        _updateMarkers();
 
         debugPrint('[MAP] Initialized with destination: $lat, $lng');
       }
     }
   }
 
+  /// Update markers on map
+  void _updateMarkers() {
+    _markers.clear();
+
+    if (_currentLocation != null) {
+      _markers.add(
+        Marker(
+          markerId: const MarkerId('current'),
+          position: _currentLocation!,
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+          infoWindow: const InfoWindow(title: 'My Location'),
+        ),
+      );
+    }
+
+    if (_pickedLocation != null) {
+      _markers.add(
+        Marker(
+          markerId: const MarkerId('destination'),
+          position: _pickedLocation!,
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+          infoWindow: const InfoWindow(title: 'Destination'),
+        ),
+      );
+    }
+
+    setState(() {});
+  }
+
   /// Setup map after it's created
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
 
-    // If we have a destination, update markers and animate to it
-    if (_tripController.pickedLocation != null) {
-      _tripController.updateMarkersAndRoute();
-
+    // If we have a destination, animate to it
+    if (_pickedLocation != null) {
       // Animate camera to destination
       _mapController!.animateCamera(
-        CameraUpdate.newLatLngZoom(_tripController.pickedLocation!, 15),
+        CameraUpdate.newLatLngZoom(_pickedLocation!, 15),
       );
 
       debugPrint('[MAP] Map created and camera moved to destination');
@@ -120,7 +115,6 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _tripController.dispose();
     super.dispose();
   }
 
@@ -129,10 +123,8 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
     debugPrint('[MAP] Place selected: $placeName at $location');
 
     // Set the picked location
-    _tripController.setPickedLocation(location);
-
-    // Update markers (no route path)
-    _tripController.updateMarkersAndRoute();
+    _pickedLocation = location;
+    _updateMarkers();
 
     // Animate map to the selected location
     if (_mapController != null) {
@@ -148,25 +140,20 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
 
   /// Send selected coordinates to backend
   Future<void> _sendCoordinatesToBackend() async {
+    if (_pickedLocation == null) return;
+
     try {
       debugPrint('[API] Sending coordinates to backend...');
-      final result = await _tripController.updateGroupAddress(
+      final result = await _updateGroupAddressInBackend(
         groupId: widget.groupId,
-        onLog: (log) {}, // Ignore logs for auto-save
-        onSuccess: () {
-          // Refresh UI after successful update
-          if (mounted) {
-            setState(() {
-              // Trigger rebuild to reflect updated coordinates in Hive
-            });
-          }
-        },
+        latitude: _pickedLocation!.latitude,
+        longitude: _pickedLocation!.longitude,
       );
 
       if (mounted) {
         debugPrint('[API] Coordinates sent successfully: ${result['message']}');
-        // Optionally show a subtle success indicator
-        // _showSnackBar('[API] Location saved');
+        // Refresh UI after successful update
+        setState(() {});
       }
     } catch (e) {
       if (mounted) {
@@ -176,88 +163,42 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
     }
   }
 
-  /// Handle start trip button
-  Future<void> _handleStartTrip() async {
-    if (_tripController.pickedLocation == null) {
-      _showSnackBar('Please set a destination first by tapping on the map.');
-      return;
-    }
+  /// Update group address in backend
+  Future<Map<String, dynamic>> _updateGroupAddressInBackend({
+    required int groupId,
+    required double latitude,
+    required double longitude,
+  }) async {
+    final backendUrl = storageService.getNgrokUrl() ?? "";
+    final groupService = GroupService(baseUrl: backendUrl);
 
-    String logs = "";
-    try {
-      await _tripController.startTrip(
-        groupId: widget.groupId,
-        onLog: (log) => logs = log,
-        onTripStarted: () {
-          // Animate map to current position when trip starts
-          if (_tripController.currentLocation != null &&
-              _mapController != null) {
-            _mapController!.animateCamera(
-              CameraUpdate.newLatLngZoom(_tripController.currentLocation!, 16),
-            );
-            debugPrint(
-              '[MAP] Map focused on current position: ${_tripController.currentLocation}',
-            );
-          }
-        },
-      );
-
-      if (mounted) {
-        _showSnackBar("[TRIP] Trip started - Live tracking enabled");
-      }
-    } catch (e) {
-      if (mounted) {
-        _showApiLogsDialog(logs.isNotEmpty ? logs : e.toString());
-        _showSnackBar("[TRIP ERROR] Failed to start trip: $e");
-      }
-    }
-  }
-
-  /// Handle finish trip button
-  Future<void> _handleFinishTrip() async {
-    String logs = "";
-    try {
-      logs = await _tripController.finishTrip(
-        widget.groupId,
-        (log) => logs = log,
-      );
-
-      if (mounted) {
-        _showApiLogsDialog(logs);
-        _showSnackBar("[TRIP] Trip finished");
-      }
-    } catch (e) {
-      if (mounted) {
-        _showSnackBar("[TRIP ERROR] Failed to finish trip: $e");
-      }
-    }
+    return await groupService.updateGroup(
+      groupId: groupId,
+      latitude: latitude,
+      longitude: longitude,
+      onLog: (log) => debugPrint('[API] $log'),
+    );
   }
 
   /// Handle set address button
   Future<void> _handleSetAddress() async {
-    if (_tripController.pickedLocation == null) {
+    if (_pickedLocation == null) {
       _showSnackBar('Please tap on the map to pick a location.');
       return;
     }
 
     String logs = "";
     try {
-      final result = await _tripController.updateGroupAddress(
+      final result = await _updateGroupAddressInBackend(
         groupId: widget.groupId,
-        onLog: (log) => logs = log,
-        onSuccess: () {
-          // Refresh UI after successful update
-          if (mounted) {
-            setState(() {
-              // Trigger rebuild to reflect updated Hive data
-            });
-          }
-        },
+        latitude: _pickedLocation!.latitude,
+        longitude: _pickedLocation!.longitude,
       );
 
       if (mounted) {
         _showApiLogsDialog(logs);
         _showSnackBar(result['message'] ?? 'Address updated!');
+        setState(() {});
       }
     } catch (e) {
       if (mounted) {
@@ -269,59 +210,28 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
 
   /// Handle my location button
   Future<void> _handleMyLocation() async {
-    await _tripController.getCurrentLocation();
-    if (_tripController.currentLocation != null && _mapController != null) {
-      _mapController!.animateCamera(
-        CameraUpdate.newLatLngZoom(_tripController.currentLocation!, 16),
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
       );
+      _currentLocation = LatLng(position.latitude, position.longitude);
+      _updateMarkers();
+
+      if (_mapController != null) {
+        _mapController!.animateCamera(
+          CameraUpdate.newLatLngZoom(_currentLocation!, 16),
+        );
+      }
+    } catch (e) {
+      debugPrint('[ERROR] Failed to get current location: $e');
+      _showSnackBar('Failed to get current location');
     }
-  }
-
-  /// Fit the map to show the entire route
-  void _fitMapToRoute() {
-    if (_mapController == null ||
-        _tripController.currentLocation == null ||
-        _tripController.pickedLocation == null) {
-      return;
-    }
-
-    final bounds = LatLngBounds(
-      southwest: LatLng(
-        math.min(
-              _tripController.currentLocation!.latitude,
-              _tripController.pickedLocation!.latitude,
-            ) -
-            0.01,
-        math.min(
-              _tripController.currentLocation!.longitude,
-              _tripController.pickedLocation!.longitude,
-            ) -
-            0.01,
-      ),
-      northeast: LatLng(
-        math.max(
-              _tripController.currentLocation!.latitude,
-              _tripController.pickedLocation!.latitude,
-            ) +
-            0.01,
-        math.max(
-              _tripController.currentLocation!.longitude,
-              _tripController.pickedLocation!.longitude,
-            ) +
-            0.01,
-      ),
-    );
-
-    _mapController!.animateCamera(CameraUpdate.newLatLngBounds(bounds, 100.0));
   }
 
   /// Handle map tap
   void _handleMapTap(LatLng position) {
-    _tripController.setPickedLocation(position);
-
-    if (_tripController.tripActive) {
-      _tripController.updateMarkersAndRoute();
-    }
+    _pickedLocation = position;
+    _updateMarkers();
   }
 
   /// Show snackbar message
@@ -352,19 +262,13 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.groupName)),
-      body: AnimatedBuilder(
-        animation: _tripController,
-        builder: (context, child) {
-          return Column(
-            children: [
-              _buildSearchSection(),
-              _buildControlButtons(),
-              _buildRouteInfo(),
-              _buildMapView(),
-              const CustomStatusWidget(),
-            ],
-          );
-        },
+      body: Column(
+        children: [
+          _buildSearchSection(),
+          _buildControlButtons(),
+          _buildMapView(),
+          const CustomStatusWidget(),
+        ],
       ),
     );
   }
@@ -384,41 +288,11 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
   Widget _buildControlButtons() {
     return Padding(
       padding: const EdgeInsets.all(8.0),
-      child: Column(
-        children: [
-          TripControlButtons(
-            tripActive: _tripController.tripActive,
-            hasDestination: _tripController.pickedLocation != null,
-            onStartTrip: _handleStartTrip,
-            onFinishTrip: _handleFinishTrip,
-            onSetAddress: _handleSetAddress,
-            onMyLocation: _handleMyLocation,
-          ),
-          if (_tripController.tripActive &&
-              _tripController.currentLocation != null &&
-              _tripController.pickedLocation != null) ...[
-            const SizedBox(height: 8),
-            MapUtilityButtons(
-              showRouteButton: true,
-              onMyLocation: _handleMyLocation,
-              onShowRoute: _fitMapToRoute,
-            ),
-          ],
-        ],
+      child: TripControlButtons(
+        hasDestination: _pickedLocation != null,
+        onSetAddress: _handleSetAddress,
+        onMyLocation: _handleMyLocation,
       ),
-    );
-  }
-
-  /// Build route info display
-  Widget _buildRouteInfo() {
-    return Column(
-      children: [
-        RouteInfoCard(
-          routeInfo: _tripController.routeInfo,
-          tripActive: _tripController.tripActive,
-        ),
-        const SizedBox(height: 8),
-      ],
     );
   }
 
@@ -435,8 +309,8 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
         myLocationButtonEnabled: false,
         zoomControlsEnabled: true,
         onTap: _handleMapTap,
-        markers: _tripController.markers,
-        polylines: _tripController.polylines,
+        markers: _markers,
+        polylines: _polylines,
         onMapCreated: _onMapCreated,
       ),
     );
