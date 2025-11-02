@@ -13,7 +13,7 @@
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     
     <application
-        android:label="chalaka"
+        android:label="parent"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <!-- Google Maps API Key -->

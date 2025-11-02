@@ -1,14 +1,16 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'main.dart'; // To access storageService
 import 'package:flutter/foundation.dart';
+import 'services/backend_com_service.dart';
 
 class OtpService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final String backendUrl;
+  late final BackendComService _backendService;
 
-  OtpService({required this.backendUrl});
+  OtpService({required this.backendUrl}) {
+    _backendService = BackendComService(baseUrl: backendUrl);
+  }
 
   /// Step 1: Send OTP
   Future<void> sendOtp({
@@ -55,7 +57,9 @@ class OtpService {
       }
 
       // 3) Send ID token to backend
-      final backendResponse = await sendIdTokenToBackend(idToken);
+      final backendResponse = await _backendService.sendIdTokenToBackend(
+        idToken,
+      );
       debugPrint('[AUTH] Backend Response: $backendResponse');
       debugPrint('[AUTH] ID Token: $idToken');
 
@@ -93,25 +97,6 @@ class OtpService {
     } catch (e) {
       onBackendFailed(e.toString());
       return null;
-    }
-  }
-
-  /// Helper: Send Firebase ID token to backend
-  Future<Map<String, dynamic>> sendIdTokenToBackend(String idToken) async {
-    final url = Uri.parse('$backendUrl/auth/login');
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'id_token': idToken}),
-    );
-
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
-    } else {
-      debugPrint(
-        '[AUTH ERROR] Backend error: ${response.statusCode} ${response.body}',
-      );
-      throw Exception('Backend error: ${response.statusCode} ${response.body}');
     }
   }
 }

@@ -3,6 +3,7 @@ import 'select_contacts_page.dart';
 import 'group_service.dart';
 import 'group_details_page.dart';
 import 'main.dart'; // To access storageService
+import 'widgets/status_widget.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -60,150 +61,167 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: profId == null
-          ? const Center(child: CircularProgressIndicator())
-          : Padding(
-              padding: const EdgeInsets.symmetric(
-                vertical: 16.0,
-                horizontal: 0,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 16.0),
-                    child: Text(
-                      'Groups',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 22,
-                      ),
+      body: Column(
+        children: [
+          Expanded(
+            child: profId == null
+                ? const Center(child: CircularProgressIndicator())
+                : Padding(
+                    padding: const EdgeInsets.symmetric(
+                      vertical: 16.0,
+                      horizontal: 0,
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: groups.isEmpty
-                        ? const Center(child: Text("No groups found"))
-                        : ListView.builder(
-                            itemCount: groups.length,
-                            itemBuilder: (context, index) {
-                              final group = groups[index];
-                              return Card(
-                                margin: const EdgeInsets.symmetric(
-                                  vertical: 8,
-                                  horizontal: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                ),
-                                elevation: 2,
-                                color: Colors.purple[50],
-                                child: ExpansionTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor: Colors.grey[300],
-                                    child: Icon(
-                                      Icons.group,
-                                      color: Colors.deepPurple,
-                                    ),
-                                  ),
-                                  title: Text(
-                                    group["name"] ?? "",
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 18,
-                                    ),
-                                  ),
-                                  subtitle: Text(
-                                    'Members: ${group["member_list"] != null ? (group["member_list"] as List).length.toString() : "N/A"}',
-                                    style: const TextStyle(fontSize: 14),
-                                  ),
-                                  children: [
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16.0,
-                                        vertical: 8.0,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 16.0),
+                          child: Text(
+                            'Groups',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 22,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Expanded(
+                          child: groups.isEmpty
+                              ? const Center(child: Text("No groups found"))
+                              : ListView.builder(
+                                  itemCount: groups.length,
+                                  itemBuilder: (context, index) {
+                                    final group = groups[index];
+                                    return Card(
+                                      margin: const EdgeInsets.symmetric(
+                                        vertical: 8,
+                                        horizontal: 16,
                                       ),
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              const Text(
-                                                'Group ID: ',
-                                                style: TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                ),
-                                              ),
-                                              Text(group["id"].toString()),
-                                            ],
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                      elevation: 2,
+                                      color: Colors.purple[50],
+                                      child: ExpansionTile(
+                                        leading: CircleAvatar(
+                                          backgroundColor: Colors.grey[300],
+                                          child: Icon(
+                                            Icons.group,
+                                            color: Colors.deepPurple,
                                           ),
-                                          const SizedBox(height: 8),
-                                          if (group["dest_coordinates"] != null)
-                                            Column(
+                                        ),
+                                        title: Text(
+                                          group["name"] ?? "",
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 18,
+                                          ),
+                                        ),
+                                        subtitle: Text(
+                                          'Members: ${group["member_list"] != null ? (group["member_list"] as List).length.toString() : "N/A"}',
+                                          style: const TextStyle(fontSize: 14),
+                                        ),
+                                        children: [
+                                          Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 16.0,
+                                              vertical: 8.0,
+                                            ),
+                                            child: Column(
                                               crossAxisAlignment:
                                                   CrossAxisAlignment.start,
                                               children: [
-                                                const Text(
-                                                  'Destination:',
-                                                  style: TextStyle(
-                                                    fontWeight: FontWeight.bold,
-                                                  ),
+                                                Row(
+                                                  children: [
+                                                    const Text(
+                                                      'Group ID: ',
+                                                      style: TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                      ),
+                                                    ),
+                                                    Text(
+                                                      group["id"].toString(),
+                                                    ),
+                                                  ],
                                                 ),
-                                                const SizedBox(height: 4),
-                                                Text(
-                                                  'Lat: ${group["dest_coordinates"]["latitude"]?.toStringAsFixed(6) ?? "N/A"}',
-                                                  style: const TextStyle(
-                                                    fontSize: 13,
+                                                const SizedBox(height: 8),
+                                                if (group["dest_coordinates"] !=
+                                                    null)
+                                                  Column(
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
+                                                    children: [
+                                                      const Text(
+                                                        'Destination:',
+                                                        style: TextStyle(
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                        ),
+                                                      ),
+                                                      const SizedBox(height: 4),
+                                                      Text(
+                                                        'Lat: ${group["dest_coordinates"]["latitude"]?.toStringAsFixed(6) ?? "N/A"}',
+                                                        style: const TextStyle(
+                                                          fontSize: 13,
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        'Long: ${group["dest_coordinates"]["longitude"]?.toStringAsFixed(6) ?? "N/A"}',
+                                                        style: const TextStyle(
+                                                          fontSize: 13,
+                                                        ),
+                                                      ),
+                                                    ],
                                                   ),
-                                                ),
-                                                Text(
-                                                  'Long: ${group["dest_coordinates"]["longitude"]?.toStringAsFixed(6) ?? "N/A"}',
-                                                  style: const TextStyle(
-                                                    fontSize: 13,
-                                                  ),
-                                                ),
                                               ],
                                             ),
+                                          ),
+                                          TextButton(
+                                            onPressed: () {
+                                              // Extract destination coordinates if they exist
+                                              double? destLat;
+                                              double? destLng;
+                                              if (group["dest_coordinates"] !=
+                                                  null) {
+                                                destLat =
+                                                    group["dest_coordinates"]["latitude"];
+                                                destLng =
+                                                    group["dest_coordinates"]["longitude"];
+                                              }
+
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      GroupDetailsPage(
+                                                        groupName:
+                                                            group["name"],
+                                                        groupId: group["id"],
+                                                        destinationLatitude:
+                                                            destLat,
+                                                        destinationLongitude:
+                                                            destLng,
+                                                      ),
+                                                ),
+                                              );
+                                            },
+                                            child: const Text('View Details'),
+                                          ),
                                         ],
                                       ),
-                                    ),
-                                    TextButton(
-                                      onPressed: () {
-                                        // Extract destination coordinates if they exist
-                                        double? destLat;
-                                        double? destLng;
-                                        if (group["dest_coordinates"] != null) {
-                                          destLat =
-                                              group["dest_coordinates"]["latitude"];
-                                          destLng =
-                                              group["dest_coordinates"]["longitude"];
-                                        }
-
-                                        Navigator.push(
-                                          context,
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                GroupDetailsPage(
-                                                  groupName: group["name"],
-                                                  groupId: group["id"],
-                                                  destinationLatitude: destLat,
-                                                  destinationLongitude: destLng,
-                                                ),
-                                          ),
-                                        );
-                                      },
-                                      child: const Text('View Details'),
-                                    ),
-                                  ],
+                                    );
+                                  },
                                 ),
-                              );
-                            },
-                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ],
-              ),
-            ),
+          ),
+          const CustomStatusWidget(),
+        ],
+      ),
     );
   }
 }

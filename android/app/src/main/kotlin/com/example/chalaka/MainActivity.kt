@@ -1,4 +1,4 @@
-package com.daari.chalaka
+package com.daari.parent
 
 import io.flutter.embedding.android.FlutterActivity
 

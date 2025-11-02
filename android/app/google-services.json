@@ -16,6 +16,31 @@
       "api_key": [
         {
           "current_key": "AIzaSyDJ3hk2gIcpMA2qHeWEZrb5RghPeVC4fvk"
+        },
+        {
+          "current_key": "AIzaSyC-4_JjX5Xu877_ijyrcNch_PWqcSshK10"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:192909758501:android:872577a189174eadcaefcc",
+        "android_client_info": {
+          "package_name": "com.daari.parent"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDJ3hk2gIcpMA2qHeWEZrb5RghPeVC4fvk"
+        },
+        {
+          "current_key": "AIzaSyC-4_JjX5Xu877_ijyrcNch_PWqcSshK10"
         }
       ],
       "services": {

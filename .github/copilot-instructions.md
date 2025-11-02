@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**Chalaka** is a Flutter mobile app for group-based trip tracking with real-time location sharing. It uses Firebase authentication, Google Maps, and a custom backend API accessible via Ngrok tunneling. The app supports offline-first location storage using Hive and automatic crash recovery for interrupted trips.
+**Daari-Parent** is a Flutter mobile app for group-based trip tracking with real-time location sharing. It uses Firebase authentication, Google Maps, and a custom backend API accessible via Ngrok tunneling or direct communication with Custom Backend. The app supports offline-first location storage using Hive and automatic crash recovery for interrupted trips.
 
 ## Architecture
 
