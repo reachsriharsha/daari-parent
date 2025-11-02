@@ -7,6 +7,7 @@ import 'widgets/trip_control_buttons.dart';
 import 'widgets/map_utility_buttons.dart';
 import 'widgets/route_info_card.dart';
 import 'widgets/resume_trip_dialog.dart';
+import 'widgets/status_widget.dart';
 import 'main.dart'; // For storageService
 
 class GroupDetailsPage extends StatefulWidget {
@@ -360,6 +361,7 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
               _buildControlButtons(),
               _buildRouteInfo(),
               _buildMapView(),
+              const CustomStatusWidget(),
             ],
           );
         },
