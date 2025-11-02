@@ -12,3 +12,9 @@
 ```
 flutter pub run build_runner build --delete-conflicting-outputs
 ```
+
+# Faster build
+
+```bash
+flutter build apk --debug --target-platform android-arm64
+```

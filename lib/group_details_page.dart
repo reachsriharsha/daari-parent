@@ -138,6 +138,13 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
     await _sendCoordinatesToBackend();
   }
 
+  /// Handle home address selection from search
+  void _handleHomeAddressSelected(LatLng location, String address) {
+    debugPrint('[HOME] Home address selected: $address at $location');
+    // Note: Currently just displaying in SnackBar as per requirements
+    // Backend API integration will be added later
+  }
+
   /// Send selected coordinates to backend
   Future<void> _sendCoordinatesToBackend() async {
     if (_pickedLocation == null) return;
@@ -280,6 +287,8 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
       child: SearchPlaceWidget(
         mapController: _mapController,
         onPlaceSelected: _handlePlaceSelected,
+        onHomeAddressSelected: _handleHomeAddressSelected,
+        onSetDestination: _handleSetAddress,
       ),
     );
   }
