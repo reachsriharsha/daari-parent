@@ -4,7 +4,8 @@ import 'package:geolocator/geolocator.dart';
 import 'widgets/search_place_widget.dart';
 import 'widgets/trip_control_buttons.dart';
 import 'widgets/status_widget.dart';
-import 'group_service.dart';
+import 'services/group_service.dart';
+import 'services/user_service.dart';
 import 'main.dart'; // For storageService
 
 class GroupDetailsPage extends StatefulWidget {
@@ -139,10 +140,28 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
   }
 
   /// Handle home address selection from search
-  void _handleHomeAddressSelected(LatLng location, String address) {
+  Future<void> _handleHomeAddressSelected(
+    LatLng location,
+    String address,
+  ) async {
     debugPrint('[HOME] Home address selected: $address at $location');
-    // Note: Currently just displaying in SnackBar as per requirements
-    // Backend API integration will be added later
+
+    try {
+      // Update user home coordinates using UserService
+      await _updateUserHomeCoordinates(
+        latitude: location.latitude,
+        longitude: location.longitude,
+      );
+
+      if (mounted) {
+        _showSnackBar('[HOME] Home address saved: $address');
+      }
+    } catch (e) {
+      debugPrint('[HOME ERROR] Failed to save home address: $e');
+      if (mounted) {
+        _showSnackBar('[HOME ERROR] Failed to save home address');
+      }
+    }
   }
 
   /// Send selected coordinates to backend
@@ -184,6 +203,24 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
       latitude: latitude,
       longitude: longitude,
       onLog: (log) => debugPrint('[API] $log'),
+    );
+  }
+
+  /// Update user home coordinates in backend
+  Future<Map<String, dynamic>> _updateUserHomeCoordinates({
+    required double latitude,
+    required double longitude,
+  }) async {
+    final backendUrl = storageService.getNgrokUrl() ?? "";
+    final userService = UserService(
+      baseUrl: backendUrl,
+      storageService: storageService,
+    );
+
+    return await userService.updateUserHomeCoordinates(
+      latitude: latitude,
+      longitude: longitude,
+      onLog: (log) => debugPrint('[USER] $log'),
     );
   }
 

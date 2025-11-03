@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'select_contacts_page.dart';
-import 'group_service.dart';
+import 'services/group_service.dart';
 import 'group_details_page.dart';
 import 'main.dart'; // To access storageService
 import 'widgets/status_widget.dart';
