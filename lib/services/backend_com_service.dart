@@ -9,12 +9,24 @@ class BackendComService {
   BackendComService({required this.baseUrl});
 
   /// Send Firebase ID token to backend for authentication
-  Future<Map<String, dynamic>> sendIdTokenToBackend(String idToken) async {
+  /// Optionally includes FCM token for push notifications
+  Future<Map<String, dynamic>> sendIdTokenToBackend(
+    String idToken, {
+    String? fcmToken,
+  }) async {
     final url = Uri.parse('$baseUrl/auth/login');
+
+    // Build request body
+    final body = <String, dynamic>{'id_token': idToken};
+    if (fcmToken != null) {
+      body['fcm_token'] = fcmToken;
+      body['platform'] = 'android'; // TODO: Detect platform dynamically
+    }
+
     final response = await http.post(
       url,
       headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'id_token': idToken}),
+      body: jsonEncode(body),
     );
 
     if (response.statusCode == 200) {
@@ -22,6 +34,50 @@ class BackendComService {
     } else {
       final errorMessage =
           'Backend error: ${response.statusCode} ${response.body}';
+      developer.log(
+        errorMessage,
+        name: 'BackendComService',
+        level: 1000, // Error level
+      );
+      throw Exception(errorMessage);
+    }
+  }
+
+  /// Refresh FCM token on backend
+  Future<Map<String, dynamic>> refreshFcmToken({
+    required String idToken,
+    required String fcmToken,
+  }) async {
+    final url = Uri.parse('$baseUrl/api/user/refreshtoken');
+
+    final body = {
+      'fcm_token': fcmToken,
+      'platform': 'android', // TODO: Detect platform dynamically
+    };
+
+    developer.log(
+      'Refreshing FCM token: ${fcmToken.substring(0, 20)}...',
+      name: 'BackendComService',
+    );
+
+    final response = await http.post(
+      url,
+      headers: {
+        'Authorization': 'Bearer $idToken',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      developer.log(
+        'FCM token refreshed successfully',
+        name: 'BackendComService',
+      );
+      return jsonDecode(response.body);
+    } else {
+      final errorMessage =
+          'Failed to refresh FCM token: ${response.statusCode} ${response.body}';
       developer.log(
         errorMessage,
         name: 'BackendComService',

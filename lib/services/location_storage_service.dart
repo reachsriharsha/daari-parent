@@ -381,6 +381,28 @@ class LocationStorageService {
     }
   }
 
+  /// Save FCM token
+  Future<bool> saveFcmToken(String token) async {
+    try {
+      var settings = getAppSettings() ?? AppSettings();
+      settings.fcmToken = token;
+      return await saveAppSettings(settings);
+    } catch (e) {
+      debugPrint('[HIVE ERROR] Error saving FCM token: $e');
+      return false;
+    }
+  }
+
+  /// Get FCM token
+  Future<String?> getFcmToken() async {
+    try {
+      return getAppSettings()?.fcmToken;
+    } catch (e) {
+      debugPrint('[HIVE ERROR] Error getting FCM token: $e');
+      return null;
+    }
+  }
+
   /// Clear app settings
   Future<bool> clearAppSettings() async {
     try {

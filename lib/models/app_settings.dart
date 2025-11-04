@@ -16,11 +16,15 @@ class AppSettings extends HiveObject {
   @HiveField(3)
   bool? locationPermissionGranted;
 
+  @HiveField(4)
+  String? fcmToken;
+
   AppSettings({
     this.ngrokUrl,
     this.idToken,
     this.profId,
     this.locationPermissionGranted,
+    this.fcmToken,
   });
 
   // Helper method to clear all settings
@@ -29,10 +33,11 @@ class AppSettings extends HiveObject {
     idToken = null;
     profId = null;
     locationPermissionGranted = null;
+    fcmToken = null;
   }
 
   @override
   String toString() {
-    return 'AppSettings(ngrokUrl: $ngrokUrl, profId: $profId, hasToken: ${idToken != null}, locationPermission: $locationPermissionGranted)';
+    return 'AppSettings(ngrokUrl: $ngrokUrl, profId: $profId, hasToken: ${idToken != null}, locationPermission: $locationPermissionGranted, hasFcmToken: ${fcmToken != null})';
   }
 }

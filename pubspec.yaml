@@ -45,6 +45,7 @@ dependencies:
 
   firebase_core: ^2.30.0
   firebase_auth: ^4.17.9
+  firebase_messaging: ^14.7.9
   http: ^1.1.0
   flutter_contacts: ^1.1.7
   flutter_native_contact_picker:

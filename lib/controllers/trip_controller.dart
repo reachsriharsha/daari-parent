@@ -756,4 +756,76 @@ class TripController extends ChangeNotifier {
       rethrow;
     }
   }
+
+  // -----------------------------
+  // FCM Driver Location Update Methods
+  // -----------------------------
+
+  /// Update driver location from FCM notification
+  /// Called when receiving trip_start or trip_update notifications
+  void updateDriverLocation(double latitude, double longitude) {
+    try {
+      final driverLocation = LatLng(latitude, longitude);
+
+      debugPrint(
+        '[FCM] Updating driver location: lat=$latitude, lng=$longitude',
+      );
+
+      // Add driver marker to map
+      _addDriverMarker(driverLocation);
+
+      // If we have path points, draw polyline from path to driver
+      if (_pathPoints.isNotEmpty) {
+        _updateDriverPathPolyline(driverLocation);
+      }
+
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[FCM ERROR] Failed to update driver location: $e');
+    }
+  }
+
+  /// Add or update driver marker on map
+  void _addDriverMarker(LatLng location) {
+    // Remove existing driver marker if any
+    _markers.removeWhere((m) => m.markerId.value == 'driver_marker');
+
+    // Add new driver marker
+    _markers.add(
+      Marker(
+        markerId: const MarkerId('driver_marker'),
+        position: location,
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+        infoWindow: const InfoWindow(
+          title: 'Driver Location',
+          snippet: 'Current driver position',
+        ),
+      ),
+    );
+
+    debugPrint('[FCM] Driver marker added at: $location');
+  }
+
+  /// Update polyline showing driver's traveled path
+  void _updateDriverPathPolyline(LatLng driverLocation) {
+    // Add driver location to path (optional - only if tracking driver path)
+    // For now, just update the polyline to show connection
+
+    // Create polyline showing driver's path
+    final driverPathPolyline = Polyline(
+      polylineId: const PolylineId('driver_path'),
+      points: [..._pathPoints, driverLocation],
+      color: Colors.green,
+      width: 4,
+      geodesic: true,
+    );
+
+    // Remove old driver path polyline
+    _polylines.removeWhere((p) => p.polylineId.value == 'driver_path');
+
+    // Add updated driver path
+    _polylines.add(driverPathPolyline);
+
+    debugPrint('[FCM] Driver path polyline updated with driver location');
+  }
 }

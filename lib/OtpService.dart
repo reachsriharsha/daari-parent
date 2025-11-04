@@ -2,11 +2,13 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'main.dart'; // To access storageService
 import 'package:flutter/foundation.dart';
 import 'services/backend_com_service.dart';
+import 'services/fcm_service.dart';
 
 class OtpService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final String backendUrl;
   late final BackendComService _backendService;
+  final FCMService _fcmService = FCMService();
 
   OtpService({required this.backendUrl}) {
     _backendService = BackendComService(baseUrl: backendUrl);
@@ -56,9 +58,16 @@ class OtpService {
         return null;
       }
 
-      // 3) Send ID token to backend
+      // 2.5) Get FCM token (always send on login)
+      final fcmToken = _fcmService.currentToken ?? await _fcmService.getToken();
+      debugPrint(
+        '[AUTH] FCM Token: ${fcmToken != null ? "${fcmToken.substring(0, 20)}..." : "null"}',
+      );
+
+      // 3) Send ID token + FCM token to backend
       final backendResponse = await _backendService.sendIdTokenToBackend(
         idToken,
+        fcmToken: fcmToken,
       );
       debugPrint('[AUTH] Backend Response: $backendResponse');
       debugPrint('[AUTH] ID Token: $idToken');
@@ -97,6 +106,37 @@ class OtpService {
     } catch (e) {
       onBackendFailed(e.toString());
       return null;
+    }
+  }
+
+  /// Refresh FCM token on backend (called when token changes)
+  Future<bool> refreshFcmToken() async {
+    try {
+      // Get current ID token from Hive
+      final idToken = storageService.getIdToken();
+      if (idToken == null) {
+        debugPrint('[AUTH] Cannot refresh FCM token - no ID token found');
+        return false;
+      }
+
+      // Get current FCM token
+      final fcmToken = _fcmService.currentToken ?? await _fcmService.getToken();
+      if (fcmToken == null) {
+        debugPrint('[AUTH] Cannot refresh FCM token - no FCM token found');
+        return false;
+      }
+
+      // Send to backend
+      await _backendService.refreshFcmToken(
+        idToken: idToken,
+        fcmToken: fcmToken,
+      );
+
+      debugPrint('[AUTH] FCM token refreshed successfully on backend');
+      return true;
+    } catch (e) {
+      debugPrint('[AUTH ERROR] Failed to refresh FCM token: $e');
+      return false;
     }
   }
 }

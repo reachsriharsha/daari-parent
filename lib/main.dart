@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'login_page.dart';
-import 'controllers/trip_controller.dart';
 import 'services/location_storage_service.dart';
+import 'services/app_initializer.dart';
+import 'services/fcm_notification_handler.dart';
 
 // Global instance of storage service
 final LocationStorageService storageService = LocationStorageService();
@@ -10,31 +10,8 @@ final LocationStorageService storageService = LocationStorageService();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Hive storage first
-  try {
-    await storageService.init();
-    debugPrint('[HIVE] Hive storage initialized');
-  } catch (e) {
-    debugPrint('[HIVE ERROR] Failed to initialize Hive: $e');
-  }
-
-  // Only initialize Firebase if not already initialized
-  if (Firebase.apps.isEmpty) {
-    await Firebase.initializeApp(
-      options: const FirebaseOptions(
-        apiKey:
-            "AIzaSyAwierriEkBCarzpDCbLLzoBQPoEO_Uiro", // Replace with your actual API key
-        appId:
-            "1:192909758501:android:0d216829daceeca0caefcc", // Replace with your actual App ID
-        messagingSenderId:
-            "YOUR_MESSAGING_SENDER_ID", // Replace with your actual Messaging Sender ID
-        projectId: "otptest1-cbe83", // Replace with your actual Project ID
-      ),
-    );
-  }
-
-  // Initialize background location service
-  await TripController.initializeBackgroundService();
+  // Initialize all services using centralized initializer
+  await AppInitializer.initializeAllServices(storageService: storageService);
 
   runApp(const MyApp());
 }
@@ -71,6 +48,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(debugShowCheckedModeBanner: false, home: LoginPage());
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      navigatorKey: navigatorKey, // Global navigator key for FCM navigation
+      home: LoginPage(),
+    );
   }
 }

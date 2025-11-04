@@ -21,6 +21,21 @@
             android:name="com.google.android.geo.API_KEY"
             android:value="AIzaSyDQ4s_fpwuw2xFyhFDYt37rsWcipzpgRTo"/>
         
+        <!-- FCM Default Notification Icon -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@mipmap/ic_launcher" />
+        
+        <!-- FCM Default Notification Color -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@android:color/holo_blue_light" />
+        
+        <!-- FCM Auto-initialization -->
+        <meta-data
+            android:name="firebase_messaging_auto_init_enabled"
+            android:value="true" />
+        
         <!-- Background location service -->
         <service
             android:name="id.flutter.flutter_background_service.BackgroundService"
