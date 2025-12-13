@@ -29,9 +29,9 @@ class AppInitializer {
       // 4. Initialize Background Location Service
       await _initializeBackgroundLocation();
 
-      debugPrint('[APP INIT] ✅ All services initialized successfully');
+      debugPrint('[APP INIT] All services initialized successfully');
     } catch (e) {
-      debugPrint('[APP INIT ERROR] ❌ Service initialization failed: $e');
+      debugPrint('[APP INIT ERROR] Service initialization failed: $e');
       // Don't rethrow - allow app to start even if some services fail
     }
   }
@@ -43,9 +43,9 @@ class AppInitializer {
     try {
       debugPrint('[APP INIT] Initializing Hive storage...');
       await storageService.init();
-      debugPrint('[APP INIT] ✅ Hive storage initialized');
+      debugPrint('[APP INIT] Hive storage initialized');
     } catch (e) {
-      debugPrint('[APP INIT ERROR] ❌ Hive initialization failed: $e');
+      debugPrint('[APP INIT ERROR] Hive initialization failed: $e');
       rethrow; // Hive is critical - can't continue without it
     }
   }
@@ -61,20 +61,20 @@ class AppInitializer {
           options: const FirebaseOptions(
             apiKey: "AIzaSyAwierriEkBCarzpDCbLLzoBQPoEO_Uiro",
             appId: "1:192909758501:android:0d216829daceeca0caefcc",
-            messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+            messagingSenderId: "192909758501",
             projectId: "otptest1-cbe83",
           ),
         );
-        debugPrint('[APP INIT] ✅ Firebase initialized');
+        debugPrint('[APP INIT] Firebase initialized');
       } else {
         debugPrint('[APP INIT] Firebase already initialized');
       }
 
       // Register background message handler
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-      debugPrint('[APP INIT] ✅ FCM background handler registered');
+      debugPrint('[APP INIT] FCM background handler registered');
     } catch (e) {
-      debugPrint('[APP INIT ERROR] ❌ Firebase initialization failed: $e');
+      debugPrint('[APP INIT ERROR] Firebase initialization failed: $e');
       // Don't rethrow - app can work without FCM
     }
   }
@@ -85,9 +85,9 @@ class AppInitializer {
       debugPrint('[APP INIT] Initializing FCM service...');
       final fcmService = FCMService();
       await fcmService.initialize();
-      debugPrint('[APP INIT] ✅ FCM service initialized');
+      debugPrint('[APP INIT] FCM service initialized');
     } catch (e) {
-      debugPrint('[APP INIT ERROR] ❌ FCM initialization failed: $e');
+      debugPrint('[APP INIT ERROR] FCM initialization failed: $e');
       // Don't rethrow - app can work without FCM
     }
   }
@@ -97,10 +97,10 @@ class AppInitializer {
     try {
       debugPrint('[APP INIT] Initializing background location service...');
       await TripController.initializeBackgroundService();
-      debugPrint('[APP INIT] ✅ Background location service initialized');
+      debugPrint('[APP INIT] Background location service initialized');
     } catch (e) {
       debugPrint(
-        '[APP INIT ERROR] ❌ Background location initialization failed: $e',
+        '[APP INIT ERROR] Background location initialization failed: $e',
       );
       // Don't rethrow - app can work without background location
     }

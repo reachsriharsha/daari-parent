@@ -31,6 +31,12 @@ class LocationPoint extends HiveObject {
   @HiveField(8)
   final String? groupId;
 
+  @HiveField(9)
+  final String source; // "gps" | "fcm" - tracks data source
+
+  @HiveField(10)
+  final DateTime? receivedAt; // When FCM notification was received
+
   LocationPoint({
     required this.latitude,
     required this.longitude,
@@ -41,6 +47,8 @@ class LocationPoint extends HiveObject {
     this.isSynced = false,
     this.tripEventType,
     this.groupId,
+    this.source = 'gps',
+    this.receivedAt,
   });
 
   Map<String, dynamic> toJson() => {
@@ -52,5 +60,7 @@ class LocationPoint extends HiveObject {
     'tripId': tripId,
     'tripEventType': tripEventType,
     'groupId': groupId,
+    'source': source,
+    'receivedAt': receivedAt?.toIso8601String(),
   };
 }

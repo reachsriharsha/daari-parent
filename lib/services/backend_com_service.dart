@@ -10,7 +10,7 @@ class BackendComService {
 
   /// Send Firebase ID token to backend for authentication
   /// Optionally includes FCM token for push notifications
-  Future<Map<String, dynamic>> sendIdTokenToBackend(
+  Future<Map<String, dynamic>> loginToBackEnd(
     String idToken, {
     String? fcmToken,
   }) async {
@@ -23,6 +23,11 @@ class BackendComService {
       body['platform'] = 'android'; // TODO: Detect platform dynamically
     }
 
+    developer.log(
+      'Logging in to backend with body: ${jsonEncode(body)}',
+      name: 'BackendComService',
+      level: 100, // Info level
+    );
     final response = await http.post(
       url,
       headers: {'Content-Type': 'application/json'},
@@ -48,7 +53,7 @@ class BackendComService {
     required String idToken,
     required String fcmToken,
   }) async {
-    final url = Uri.parse('$baseUrl/api/user/refreshtoken');
+    final url = Uri.parse('$baseUrl/api/auth/refreshfcmtoken');
 
     final body = {
       'fcm_token': fcmToken,
@@ -143,7 +148,7 @@ class BackendComService {
     required List<String> members,
     void Function(String log)? onLog,
   }) async {
-    final url = Uri.parse("$baseUrl/api/groups/create");
+    final url = Uri.parse("$baseUrl/apireate");
 
     final body = {
       "name": name,

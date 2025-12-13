@@ -3,9 +3,13 @@ import 'login_page.dart';
 import 'services/location_storage_service.dart';
 import 'services/app_initializer.dart';
 import 'services/fcm_notification_handler.dart';
+import 'controllers/trip_viewer_controller.dart';
 
 // Global instance of storage service
 final LocationStorageService storageService = LocationStorageService();
+
+// Global registry for TripViewerControllers (keyed by groupId)
+final Map<int, TripViewerController> tripViewerControllers = {};
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

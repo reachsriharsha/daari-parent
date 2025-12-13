@@ -34,7 +34,7 @@ class FCMService {
       setupMessageHandlers();
 
       // Setup token refresh listener
-      setupTokenRefreshListener();
+      setupFcmTokenRefreshListener();
 
       debugPrint('[FCM] FCM service initialized successfully');
     } catch (e) {
@@ -77,7 +77,7 @@ class FCMService {
 
       if (_fcmToken != null) {
         debugPrint('[FCM] Token retrieved: ${_fcmToken!.substring(0, 20)}...');
-        await saveTokenToHive(_fcmToken!);
+        await saveFcmTokenToHive(_fcmToken!);
         return _fcmToken;
       } else {
         debugPrint('[FCM ERROR] Failed to get token - returned null');
@@ -91,12 +91,12 @@ class FCMService {
 
   /// Setup listener for token refresh
   /// When token changes, save to Hive and notify backend
-  void setupTokenRefreshListener() {
+  void setupFcmTokenRefreshListener() {
     FirebaseMessaging.instance.onTokenRefresh.listen(
       (String newToken) async {
         debugPrint('[FCM] Token refreshed: ${newToken.substring(0, 20)}...');
         _fcmToken = newToken;
-        await saveTokenToHive(newToken);
+        await saveFcmTokenToHive(newToken);
 
         // Note: Backend update will be handled by OtpService.refreshFcmToken()
         // Call it here if you want automatic backend sync on refresh
@@ -140,7 +140,7 @@ class FCMService {
   }
 
   /// Save FCM token to Hive
-  Future<void> saveTokenToHive(String token) async {
+  Future<void> saveFcmTokenToHive(String token) async {
     try {
       await _storageService.saveFcmToken(token);
       debugPrint('[FCM] Token saved to Hive');

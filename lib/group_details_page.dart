@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
-import 'widgets/search_place_widget.dart';
-import 'widgets/trip_control_buttons.dart';
-import 'widgets/status_widget.dart';
+
+import 'controllers/trip_viewer_controller.dart';
+import 'main.dart'; // For storageService and tripViewerControllers
 import 'services/group_service.dart';
 import 'services/user_service.dart';
-import 'main.dart'; // For storageService
+import 'widgets/search_place_widget.dart';
+import 'widgets/status_widget.dart';
+import 'widgets/trip_control_buttons.dart';
+import 'widgets/trip_status_widget.dart';
 
 class GroupDetailsPage extends StatefulWidget {
   final String groupName;
@@ -37,12 +40,73 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
 
+  // Trip viewer controller for remote trip viewing
+  late TripViewerController _tripViewerController;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
+    // Initialize trip viewer controller
+    _tripViewerController = TripViewerController(
+      storageService: storageService,
+      groupId: widget.groupId,
+    );
+
+    // Register controller in global registry for FCM access
+    tripViewerControllers[widget.groupId] = _tripViewerController;
+    debugPrint(
+      '[GROUP] Registered TripViewerController for group ${widget.groupId}',
+    );
+
+    // Load any active trip being watched
+    _tripViewerController.loadActiveTrip();
+
+    // Listen to controller updates
+    _tripViewerController.addListener(_onTripViewerUpdate);
+
     _initializeDestination();
+  }
+
+  /// Handle trip viewer updates
+  void _onTripViewerUpdate() {
+    setState(() {
+      // Merge viewer markers with own markers
+      _markers = {..._getOwnMarkers(), ..._tripViewerController.markers};
+
+      // Merge polylines
+      _polylines = {..._tripViewerController.polylines};
+    });
+  }
+
+  /// Get markers for own location/destination (not from remote trip)
+  Set<Marker> _getOwnMarkers() {
+    final ownMarkers = <Marker>{};
+
+    if (_currentLocation != null) {
+      ownMarkers.add(
+        Marker(
+          markerId: const MarkerId('current'),
+          position: _currentLocation!,
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
+          infoWindow: const InfoWindow(title: 'My Location'),
+        ),
+      );
+    }
+
+    if (_pickedLocation != null) {
+      ownMarkers.add(
+        Marker(
+          markerId: const MarkerId('destination'),
+          position: _pickedLocation!,
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+          infoWindow: const InfoWindow(title: 'Destination'),
+        ),
+      );
+    }
+
+    return ownMarkers;
   }
 
   @override
@@ -71,36 +135,17 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
 
   /// Update markers on map
   void _updateMarkers() {
-    _markers.clear();
-
-    if (_currentLocation != null) {
-      _markers.add(
-        Marker(
-          markerId: const MarkerId('current'),
-          position: _currentLocation!,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue),
-          infoWindow: const InfoWindow(title: 'My Location'),
-        ),
-      );
-    }
-
-    if (_pickedLocation != null) {
-      _markers.add(
-        Marker(
-          markerId: const MarkerId('destination'),
-          position: _pickedLocation!,
-          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
-          infoWindow: const InfoWindow(title: 'Destination'),
-        ),
-      );
-    }
-
-    setState(() {});
+    setState(() {
+      _markers = {..._getOwnMarkers(), ..._tripViewerController.markers};
+    });
   }
 
   /// Setup map after it's created
   void _onMapCreated(GoogleMapController controller) {
     _mapController = controller;
+
+    // Provide map controller to trip viewer
+    _tripViewerController.setMapController(controller);
 
     // If we have a destination, animate to it
     if (_pickedLocation != null) {
@@ -116,6 +161,15 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _tripViewerController.removeListener(_onTripViewerUpdate);
+
+    // Unregister controller from global registry
+    tripViewerControllers.remove(widget.groupId);
+    debugPrint(
+      '[GROUP] Unregistered TripViewerController for group ${widget.groupId}',
+    );
+
+    _tripViewerController.dispose();
     super.dispose();
   }
 
@@ -311,7 +365,17 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
           _buildSearchSection(),
           _buildControlButtons(),
           _buildMapView(),
-          const CustomStatusWidget(),
+          // Use TripStatusWidget for remote trip status
+          ValueListenableBuilder(
+            valueListenable: _tripViewerController.statusNotifier,
+            builder: (context, statusData, _) {
+              if (statusData != null) {
+                return TripStatusWidget(statusData: statusData);
+              }
+              // Fallback to original status widget
+              return const CustomStatusWidget();
+            },
+          ),
         ],
       ),
     );

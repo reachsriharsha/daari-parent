@@ -272,6 +272,63 @@ class LocationStorageService {
     }
   }
 
+  /// Get all FCM-received points for a specific trip
+  /// Used by TripViewerController to reconstruct remote trips
+  List<LocationPoint> getFCMPointsForTrip(String tripId) {
+    try {
+      final points =
+          _locationBox?.values
+              .where((p) => p.tripId == tripId && p.source == 'fcm')
+              .toList()
+            ?..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+      debugPrint(
+        '[HIVE] Retrieved ${points?.length ?? 0} FCM points for trip $tripId',
+      );
+      return points ?? [];
+    } catch (e) {
+      debugPrint('[HIVE ERROR] Error getting FCM points: $e');
+      return [];
+    }
+  }
+
+  /// Get all GPS-tracked points for a specific trip
+  /// Used to differentiate own trips from watched trips
+  List<LocationPoint> getGPSPointsForTrip(String tripId) {
+    try {
+      final points =
+          _locationBox?.values
+              .where((p) => p.tripId == tripId && p.source == 'gps')
+              .toList()
+            ?..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+      debugPrint(
+        '[HIVE] Retrieved ${points?.length ?? 0} GPS points for trip $tripId',
+      );
+      return points ?? [];
+    } catch (e) {
+      debugPrint('[HIVE ERROR] Error getting GPS points: $e');
+      return [];
+    }
+  }
+
+  /// Get points by source type
+  List<LocationPoint> getPointsBySource(String source) {
+    try {
+      final points = _locationBox?.values
+          .where((p) => p.source == source)
+          .toList();
+
+      debugPrint(
+        '[HIVE] Retrieved ${points?.length ?? 0} points with source=$source',
+      );
+      return points ?? [];
+    } catch (e) {
+      debugPrint('[HIVE ERROR] Error getting points by source: $e');
+      return [];
+    }
+  }
+
   /// Close all boxes (call on app dispose)
   Future<void> close() async {
     await _locationBox?.close();

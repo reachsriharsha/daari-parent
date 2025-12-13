@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_core/firebase_core.dart';
 
+import '../main.dart' show tripViewerControllers;
+import '../models/trip_update_data.dart';
+import '../widgets/status_widget.dart';
+
 /// Global NavigatorKey for navigation from background handlers
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -27,12 +31,11 @@ class FCMNotificationHandler {
       final data = parsePayload(message);
       final type = data['type'] as String?;
 
-      debugPrint('[FCM] Message type: $type');
-      debugPrint('[FCM] Message data: $data');
+      debugPrint('[FCM] Message type: $type data: $data');
 
       // Handle different notification types
       switch (type) {
-        case 'trip_start':
+        case 'trip_started':
           // Show notification with sound
           await EnhancedNotificationService.showTripNotification(
             title: message.notification?.title ?? 'Trip Started',
@@ -46,13 +49,13 @@ class FCMNotificationHandler {
           _updateTripUI(data);
           break;
 
-        case 'trip_update':
+        case 'trip_updated':
           // Silent update - only update UI, no notification
           debugPrint('[FCM] Trip update - updating UI silently');
           _updateTripUI(data);
           break;
 
-        case 'trip_end':
+        case 'trip_finished':
           // Show notification without sound
           await EnhancedNotificationService.showTripNotification(
             title: message.notification?.title ?? 'Trip Ended',
@@ -171,27 +174,60 @@ class FCMNotificationHandler {
   /// Update trip UI with location data from notification
   static void _updateTripUI(Map<String, dynamic> data) {
     try {
-      final latitude = data['latitude'] as String?;
-      final longitude = data['longitude'] as String?;
+      debugPrint('[FCM] Updating trip UI with data: $data');
 
-      if (latitude != null && longitude != null) {
-        final lat = double.tryParse(latitude);
-        final lng = double.tryParse(longitude);
+      // Parse FCM data into typed object
+      final updateData = TripUpdateData.fromFCM(data);
 
-        if (lat != null && lng != null) {
-          debugPrint('[FCM] Location update: lat=$lat, lng=$lng');
+      debugPrint(
+        '[FCM] Trip update parsed: ${updateData.eventType} for trip ${updateData.tripId}',
+      );
+      debugPrint(
+        '[FCM] Location: ${updateData.latitude}, ${updateData.longitude}',
+      );
 
-          // TODO: Update TripController with new location
-          // This will require accessing the current TripController instance
-          // tripController.updateDriverLocation(lat, lng);
+      // Get the TripViewerController for this group from global registry
+      // Import is done at top: import '../main.dart' show tripViewerControllers;
+      final controller = tripViewerControllers[updateData.groupId];
 
-          debugPrint(
-            '[FCM] UI update called - TripController integration pending',
-          );
-        }
+      if (controller == null) {
+        debugPrint(
+          '[FCM] No active controller for group ${updateData.groupId}',
+        );
+        // Show status message anyway
+        showMessageInStatus(
+          'info',
+          '${updateData.displayEventType}: ${updateData.latitude.toStringAsFixed(4)}, ${updateData.longitude.toStringAsFixed(4)}',
+        );
+        return;
       }
+
+      // Dispatch to appropriate handler based on event type
+      switch (updateData.eventType) {
+        case "trip_started":
+          controller.handleTripStart(updateData);
+          debugPrint('[FCM] Trip start handled by controller');
+          break;
+
+        case "trip_updated":
+          controller.handleTripUpdate(updateData);
+          debugPrint('[FCM] Trip update handled by controller');
+          break;
+
+        case "trip_finished":
+          controller.handleTripFinish(updateData);
+          debugPrint('[FCM] Trip finish handled by controller');
+          break;
+
+        default:
+          debugPrint('[FCM] Unknown event type: ${updateData.eventType}');
+          showMessageInStatus('error', 'Unknown trip event type');
+      }
+
+      debugPrint('[FCM] Trip UI update completed');
     } catch (e) {
       debugPrint('[FCM ERROR] Error updating trip UI: $e');
+      showMessageInStatus('error', 'Failed to process trip update');
     }
   }
 

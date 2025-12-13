@@ -65,7 +65,7 @@ class OtpService {
       );
 
       // 3) Send ID token + FCM token to backend
-      final backendResponse = await _backendService.sendIdTokenToBackend(
+      final backendResponse = await _backendService.loginToBackEnd(
         idToken,
         fcmToken: fcmToken,
       );
