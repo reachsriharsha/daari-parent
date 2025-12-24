@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../main.dart'; // To access storageService
 import '../models/group.dart';
 import 'backend_com_service.dart';
+import '../utils/app_logger.dart';
 
 class GroupService {
   final String baseUrl;
@@ -112,17 +113,17 @@ class GroupService {
         // Save back to Hive (same key = groupId)
         await storageService.saveGroup(existingGroup);
 
-        debugPrint(
+        logger.info(
           '[HIVE] Updated group in Hive: ${existingGroup.groupName} '
           '(Lat: $latitude, Lng: $longitude)',
         );
       } else {
-        debugPrint(
+        logger.warning(
           '[WARNING] Group $groupId not found in Hive, skipping local update',
         );
       }
     } catch (e) {
-      debugPrint('[ERROR] Error updating group in Hive: $e');
+      logger.error('[ERROR] Error updating group in Hive: $e');
       // Don't throw - backend update succeeded, local cache can be stale
     }
   }

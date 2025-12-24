@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'location_storage_service.dart';
 import 'backend_com_service.dart';
+import '../utils/app_logger.dart';
 
 /// Service class to handle user-related operations
 class UserService {
@@ -53,7 +54,7 @@ class UserService {
     } catch (e) {
       final errorMsg = '[USER ERROR] Failed to update home coordinates: $e';
       onLog?.call(errorMsg);
-      debugPrint(errorMsg);
+      logger.error(errorMsg);
       rethrow;
     }
   }

@@ -5,6 +5,7 @@ import '../models/location_point.dart';
 import '../models/trip_settings.dart';
 import '../models/app_settings.dart';
 import '../models/group.dart';
+import '../utils/app_logger.dart';
 
 /// Service for managing location points and trip state in Hive
 class LocationStorageService {
@@ -43,15 +44,15 @@ class LocationStorageService {
       _settingsBox = await Hive.openBox<TripSettings>(_settingsBoxName);
       _appSettingsBox = await Hive.openBox<AppSettings>(_appSettingsBoxName);
 
-      debugPrint('[HIVE] Hive initialized successfully');
-      debugPrint('   - Location points: ${_locationBox?.length ?? 0}');
-      debugPrint('   - Settings box opened');
-      debugPrint('   - App settings box opened');
+      logger.info('[HIVE] Hive initialized successfully');
+      logger.info('   - Location points: ${_locationBox?.length ?? 0}');
+      logger.info('   - Settings box opened');
+      logger.info('   - App settings box opened');
 
       // Clean up old data on init
       await deleteOldPoints();
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error initializing Hive: $e');
+      logger.error('[HIVE ERROR] Error initializing Hive: $e');
       rethrow;
     }
   }
@@ -60,12 +61,12 @@ class LocationStorageService {
   Future<bool> saveLocationPoint(LocationPoint point) async {
     try {
       await _locationBox?.add(point);
-      debugPrint(
+      logger.info(
         '[HIVE] Saved location point: ${point.tripId} - ${point.tripEventType}',
       );
       return true;
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error saving location point: $e');
+      logger.error('[HIVE ERROR] Error saving location point: $e');
       return false; // Continue trip even if Hive save fails
     }
   }
@@ -74,10 +75,10 @@ class LocationStorageService {
   Future<bool> saveTripSettings(TripSettings settings) async {
     try {
       await _settingsBox?.put(_settingsKey, settings);
-      debugPrint('[HIVE] Saved trip settings: $settings');
+      logger.info('[HIVE] Saved trip settings: $settings');
       return true;
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error saving trip settings: $e');
+      logger.error('[HIVE ERROR] Error saving trip settings: $e');
       return false;
     }
   }
@@ -87,7 +88,7 @@ class LocationStorageService {
     try {
       return _settingsBox?.get(_settingsKey);
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error getting trip settings: $e');
+      logger.error('[HIVE ERROR] Error getting trip settings: $e');
       return null;
     }
   }
@@ -100,10 +101,10 @@ class LocationStorageService {
         settings.clear();
         await _settingsBox?.put(_settingsKey, settings);
       }
-      debugPrint('[HIVE] Cleared trip settings');
+      logger.info('[HIVE] Cleared trip settings');
       return true;
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error clearing trip settings: $e');
+      logger.error('[HIVE ERROR] Error clearing trip settings: $e');
       return false;
     }
   }
@@ -116,10 +117,10 @@ class LocationStorageService {
               .where((point) => point.tripId == tripId)
               .toList() ??
           [];
-      debugPrint('[HIVE] Retrieved ${points.length} points for trip $tripId');
+      logger.info('[HIVE] Retrieved ${points.length} points for trip $tripId');
       return points;
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error getting location points: $e');
+      logger.error('[HIVE ERROR] Error getting location points: $e');
       return [];
     }
   }
@@ -129,10 +130,10 @@ class LocationStorageService {
     try {
       final points =
           _locationBox?.values.where((point) => !point.isSynced).toList() ?? [];
-      debugPrint('[HIVE] Found ${points.length} unsynced points');
+      logger.info('[HIVE] Found ${points.length} unsynced points');
       return points;
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error getting unsynced points: $e');
+      logger.error('[HIVE ERROR] Error getting unsynced points: $e');
       return [];
     }
   }
@@ -162,10 +163,10 @@ class LocationStorageService {
           await _locationBox?.putAt(index, updatedPoint);
         }
       }
-      debugPrint('[HIVE] Marked ${points.length} points as synced');
+      logger.info('[HIVE] Marked ${points.length} points as synced');
       return true;
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error marking points as synced: $e');
+      logger.error('[HIVE ERROR] Error marking points as synced: $e');
       return false;
     }
   }
@@ -199,12 +200,12 @@ class LocationStorageService {
           groupId: point.groupId,
         );
         await _locationBox?.putAt(index, updatedPoint);
-        debugPrint('[HIVE] Marked point as synced');
+        logger.info('[HIVE] Marked point as synced');
         return true;
       }
       return false;
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error marking point as synced: $e');
+      logger.error('[HIVE ERROR] Error marking point as synced: $e');
       return false;
     }
   }
@@ -227,12 +228,12 @@ class LocationStorageService {
         await _locationBox?.delete(key);
       }
 
-      debugPrint(
+      logger.info(
         '[HIVE] Deleted ${keysToDelete.length} old location points (older than $_dataRetentionDays days)',
       );
       return keysToDelete.length;
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error deleting old points: $e');
+      logger.error('[HIVE ERROR] Error deleting old points: $e');
       return 0;
     }
   }
@@ -252,7 +253,7 @@ class LocationStorageService {
         'endTime': points.isNotEmpty ? points.last.timestamp : null,
       };
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error getting trip stats: $e');
+      logger.error('[HIVE ERROR] Error getting trip stats: $e');
       return {'total': 0, 'synced': 0, 'unsynced': 0};
     }
   }
@@ -267,7 +268,7 @@ class LocationStorageService {
       }
       return tripIds.toList();
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error getting trip IDs: $e');
+      logger.error('[HIVE ERROR] Error getting trip IDs: $e');
       return [];
     }
   }
@@ -282,12 +283,12 @@ class LocationStorageService {
               .toList()
             ?..sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
-      debugPrint(
+      logger.info(
         '[HIVE] Retrieved ${points?.length ?? 0} FCM points for trip $tripId',
       );
       return points ?? [];
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error getting FCM points: $e');
+      logger.error('[HIVE ERROR] Error getting FCM points: $e');
       return [];
     }
   }
@@ -302,12 +303,12 @@ class LocationStorageService {
               .toList()
             ?..sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
-      debugPrint(
+      logger.info(
         '[HIVE] Retrieved ${points?.length ?? 0} GPS points for trip $tripId',
       );
       return points ?? [];
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error getting GPS points: $e');
+      logger.error('[HIVE ERROR] Error getting GPS points: $e');
       return [];
     }
   }
@@ -319,12 +320,12 @@ class LocationStorageService {
           .where((p) => p.source == source)
           .toList();
 
-      debugPrint(
+      logger.info(
         '[HIVE] Retrieved ${points?.length ?? 0} points with source=$source',
       );
       return points ?? [];
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error getting points by source: $e');
+      logger.error('[HIVE ERROR] Error getting points by source: $e');
       return [];
     }
   }
@@ -334,7 +335,7 @@ class LocationStorageService {
     await _locationBox?.close();
     await _settingsBox?.close();
     await _appSettingsBox?.close();
-    debugPrint('[HIVE] Hive boxes closed');
+    logger.info('[HIVE] Hive boxes closed');
   }
 
   /// Get total number of stored points
@@ -354,10 +355,10 @@ class LocationStorageService {
   Future<bool> saveAppSettings(AppSettings settings) async {
     try {
       await _appSettingsBox?.put(_appSettingsKey, settings);
-      debugPrint('[HIVE] Saved app settings: $settings');
+      logger.info('[HIVE] Saved app settings: $settings');
       return true;
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error saving app settings: $e');
+      logger.error('[HIVE ERROR] Error saving app settings: $e');
       return false;
     }
   }
@@ -367,7 +368,7 @@ class LocationStorageService {
     try {
       return _appSettingsBox?.get(_appSettingsKey);
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error getting app settings: $e');
+      logger.error('[HIVE ERROR] Error getting app settings: $e');
       return null;
     }
   }
@@ -379,7 +380,7 @@ class LocationStorageService {
       settings.ngrokUrl = url;
       return await saveAppSettings(settings);
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error saving ngrok URL: $e');
+      logger.error('[HIVE ERROR] Error saving ngrok URL: $e');
       return false;
     }
   }
@@ -389,7 +390,7 @@ class LocationStorageService {
     try {
       return getAppSettings()?.ngrokUrl;
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error getting ngrok URL: $e');
+      logger.error('[HIVE ERROR] Error getting ngrok URL: $e');
       return null;
     }
   }
@@ -401,7 +402,7 @@ class LocationStorageService {
       settings.idToken = token;
       return await saveAppSettings(settings);
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error saving ID token: $e');
+      logger.error('[HIVE ERROR] Error saving ID token: $e');
       return false;
     }
   }
@@ -411,7 +412,7 @@ class LocationStorageService {
     try {
       return getAppSettings()?.idToken;
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error getting ID token: $e');
+      logger.error('[HIVE ERROR] Error getting ID token: $e');
       return null;
     }
   }
@@ -423,7 +424,7 @@ class LocationStorageService {
       settings.profId = profId;
       return await saveAppSettings(settings);
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error saving prof ID: $e');
+      logger.error('[HIVE ERROR] Error saving prof ID: $e');
       return false;
     }
   }
@@ -433,7 +434,7 @@ class LocationStorageService {
     try {
       return getAppSettings()?.profId;
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error getting prof ID: $e');
+      logger.error('[HIVE ERROR] Error getting prof ID: $e');
       return null;
     }
   }
@@ -445,7 +446,7 @@ class LocationStorageService {
       settings.fcmToken = token;
       return await saveAppSettings(settings);
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error saving FCM token: $e');
+      logger.error('[HIVE ERROR] Error saving FCM token: $e');
       return false;
     }
   }
@@ -455,7 +456,7 @@ class LocationStorageService {
     try {
       return getAppSettings()?.fcmToken;
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error getting FCM token: $e');
+      logger.error('[HIVE ERROR] Error getting FCM token: $e');
       return null;
     }
   }
@@ -468,10 +469,10 @@ class LocationStorageService {
         settings.clear();
         await _appSettingsBox?.put(_appSettingsKey, settings);
       }
-      debugPrint('[HIVE] Cleared app settings');
+      logger.info('[HIVE] Cleared app settings');
       return true;
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error clearing app settings: $e');
+      logger.error('[HIVE ERROR] Error clearing app settings: $e');
       return false;
     }
   }
@@ -483,7 +484,7 @@ class LocationStorageService {
       settings.locationPermissionGranted = granted;
       return await saveAppSettings(settings);
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error saving location permission: $e');
+      logger.error('[HIVE ERROR] Error saving location permission: $e');
       return false;
     }
   }
@@ -493,7 +494,7 @@ class LocationStorageService {
     try {
       return getAppSettings()?.locationPermissionGranted;
     } catch (e) {
-      debugPrint('[HIVE ERROR] Error getting location permission: $e');
+      logger.error('[HIVE ERROR] Error getting location permission: $e');
       return null;
     }
   }
@@ -504,7 +505,7 @@ class LocationStorageService {
   Future<void> saveGroup(Group group) async {
     final box = await Hive.openBox<Group>('groups');
     await box.put(group.groupId, group); // Use groupId as key
-    debugPrint(
+    logger.info(
       '[HIVE] Saved group to Hive: ${group.groupName} (ID: ${group.groupId})',
     );
   }
@@ -525,7 +526,7 @@ class LocationStorageService {
   Future<void> deleteGroup(int groupId) async {
     final box = await Hive.openBox<Group>('groups');
     await box.delete(groupId);
-    debugPrint('[HIVE] Deleted group from Hive: ID $groupId');
+    logger.info('[HIVE] Deleted group from Hive: ID $groupId');
   }
 
   /// Sync groups from backend with local Hive storage
@@ -540,14 +541,14 @@ class LocationStorageService {
 
       // Handle null or empty backend response
       final backendGroups = backendGroupList ?? [];
-      debugPrint(
+      logger.info(
         '[SYNC] Starting group sync. Backend groups: ${backendGroups.length}',
       );
 
       // Get all existing groups from Hive
       final hiveGroups = await getAllGroups();
       final hiveGroupIds = hiveGroups.map((g) => g.groupId).toSet();
-      debugPrint('[SYNC] Existing Hive groups: ${hiveGroupIds.length}');
+      logger.info('[SYNC] Existing Hive groups: ${hiveGroupIds.length}');
 
       // Parse backend groups and extract IDs
       final backendGroupIds = <int>{};
@@ -561,15 +562,15 @@ class LocationStorageService {
               backendGroupIds.add(groupId);
               backendGroupMap[groupId] = groupData;
             } else {
-              debugPrint('[SYNC WARNING] Group missing ID: $groupData');
+              logger.warning('[SYNC WARNING] Group missing ID: $groupData');
             }
           }
         } catch (e) {
-          debugPrint('[SYNC ERROR] Error parsing group data: $e');
+          logger.error('[SYNC ERROR] Error parsing group data: $e');
         }
       }
 
-      debugPrint('[SYNC] Parsed backend group IDs: $backendGroupIds');
+      logger.info('[SYNC] Parsed backend group IDs: $backendGroupIds');
 
       // STEP 1: Add new groups from backend
       final newGroupIds = backendGroupIds.difference(hiveGroupIds);
@@ -579,11 +580,11 @@ class LocationStorageService {
           final group = Group.fromJson(groupData);
           await saveGroup(group);
           added++;
-          debugPrint(
+          logger.info(
             '[SYNC] Added new group: ${group.groupName} (ID: $groupId)',
           );
         } catch (e) {
-          debugPrint('[SYNC ERROR] Failed to add group $groupId: $e');
+          logger.error('[SYNC ERROR] Failed to add group $groupId: $e');
         }
       }
 
@@ -593,9 +594,9 @@ class LocationStorageService {
         try {
           await deleteGroup(groupId);
           removed++;
-          debugPrint('[SYNC] Removed group: ID $groupId');
+          logger.info('[SYNC] Removed group: ID $groupId');
         } catch (e) {
-          debugPrint('[SYNC ERROR] Failed to remove group $groupId: $e');
+          logger.error('[SYNC ERROR] Failed to remove group $groupId: $e');
         }
       }
 
@@ -626,13 +627,13 @@ class LocationStorageService {
                   backendGroup.destinationLongitude;
               await saveGroup(hiveGroup);
               updated++;
-              debugPrint(
+              logger.info(
                 '[SYNC] Updated group: ${hiveGroup.groupName} (ID: $groupId)',
               );
             }
           }
         } catch (e) {
-          debugPrint('[SYNC ERROR] Failed to update group $groupId: $e');
+          logger.error('[SYNC ERROR] Failed to update group $groupId: $e');
         }
       }
 
@@ -643,13 +644,13 @@ class LocationStorageService {
         'total': backendGroupIds.length,
       };
 
-      debugPrint(
+      logger.info(
         '[SYNC] Sync complete: Added=$added, Removed=$removed, Updated=$updated, Total=${summary['total']}',
       );
 
       return summary;
     } catch (e) {
-      debugPrint('[SYNC ERROR] Group sync failed: $e');
+      logger.error('[SYNC ERROR] Group sync failed: $e');
       return {'added': 0, 'removed': 0, 'updated': 0, 'total': 0};
     }
   }

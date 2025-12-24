@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter_polyline_points/flutter_polyline_points.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'utils/app_logger.dart';
 
 class RouteService {
   // You'll need to add your Google Maps API key here
@@ -35,8 +36,10 @@ class RouteService {
             .map((point) => LatLng(point.latitude, point.longitude))
             .toList();
       }
-    } catch (e) {
-      debugPrint('Error getting route polyline: $e');
+    } catch (e, stackTrace) {
+      logger.error(
+        '[ROUTE ERROR] Failed to get route polyline: $e stacktrace: $stackTrace',
+      );
     }
     return [];
   }
@@ -71,8 +74,8 @@ class RouteService {
           );
         }
       }
-    } catch (e) {
-      debugPrint('Error getting route info: $e');
+    } catch (e, stackTrace) {
+      logger.error('[ROUTE ERROR] Error getting route info: $e, $stackTrace');
     }
     return null;
   }

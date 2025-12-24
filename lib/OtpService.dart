@@ -3,6 +3,7 @@ import 'main.dart'; // To access storageService
 import 'package:flutter/foundation.dart';
 import 'services/backend_com_service.dart';
 import 'services/fcm_service.dart';
+import 'utils/app_logger.dart';
 
 class OtpService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -60,7 +61,7 @@ class OtpService {
 
       // 2.5) Get FCM token (always send on login)
       final fcmToken = _fcmService.currentToken ?? await _fcmService.getToken();
-      debugPrint(
+      logger.debug(
         '[AUTH] FCM Token: ${fcmToken != null ? "${fcmToken.substring(0, 20)}..." : "null"}',
       );
 
@@ -69,8 +70,9 @@ class OtpService {
         idToken,
         fcmToken: fcmToken,
       );
-      debugPrint('[AUTH] Backend Response: $backendResponse');
-      debugPrint('[AUTH] ID Token: $idToken');
+      logger.debug(
+        '[AUTH] Backend Response: $backendResponse ID Token: $idToken',
+      );
 
       if (backendResponse["prof_id"] == null) {
         onBackendFailed("prof_id missing in backend response");
@@ -85,19 +87,19 @@ class OtpService {
       // 5) Sync groups from backend with local Hive storage
       final groupList = backendResponse["group_list"];
       if (groupList != null) {
-        debugPrint(
+        logger.debug(
           '[AUTH] Syncing ${(groupList as List).length} groups from backend...',
         );
         final syncResult = await storageService.syncGroupsWithBackend(
           groupList,
         );
-        debugPrint(
+        logger.debug(
           '[AUTH] Group sync complete: Added=${syncResult['added']}, '
           'Removed=${syncResult['removed']}, Updated=${syncResult['updated']}, '
           'Total=${syncResult['total']}',
         );
       } else {
-        debugPrint('[AUTH] No group_list in backend response, skipping sync');
+        logger.debug('[AUTH] No group_list in backend response, skipping sync');
       }
 
       // 6) Continue to home
@@ -115,14 +117,14 @@ class OtpService {
       // Get current ID token from Hive
       final idToken = storageService.getIdToken();
       if (idToken == null) {
-        debugPrint('[AUTH] Cannot refresh FCM token - no ID token found');
+        logger.debug('[AUTH] Cannot refresh FCM token - no ID token found');
         return false;
       }
 
       // Get current FCM token
       final fcmToken = _fcmService.currentToken ?? await _fcmService.getToken();
       if (fcmToken == null) {
-        debugPrint('[AUTH] Cannot refresh FCM token - no FCM token found');
+        logger.debug('[AUTH] Cannot refresh FCM token - no FCM token found');
         return false;
       }
 
@@ -132,10 +134,12 @@ class OtpService {
         fcmToken: fcmToken,
       );
 
-      debugPrint('[AUTH] FCM token refreshed successfully on backend');
+      logger.debug('[AUTH] FCM token refreshed successfully on backend');
       return true;
-    } catch (e) {
-      debugPrint('[AUTH ERROR] Failed to refresh FCM token: $e');
+    } catch (e, stackTrace) {
+      logger.error(
+        '[AUTH ERROR] Failed to refresh FCM token: $e Stack trace: $stackTrace',
+      );
       return false;
     }
   }

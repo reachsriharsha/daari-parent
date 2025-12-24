@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../services/group_service.dart';
+import '../utils/app_logger.dart';
 import '../route_service.dart';
 import '../services/location_storage_service.dart';
 import '../services/background_location_service.dart';
@@ -91,7 +92,7 @@ class TripController extends ChangeNotifier {
       _tripName = settings?.currentTripName;
       _tripActive = true;
 
-      debugPrint('[RESUME] Resuming trip: ID=$_tripId, Name=$_tripName');
+      logger.info('[RESUME] Resuming trip: ID=$_tripId, Name=$_tripName');
 
       // Load previous path points from Hive
       if (_tripId != null) {
@@ -101,7 +102,7 @@ class TripController extends ChangeNotifier {
         _pathPoints = savedPoints
             .map((p) => LatLng(p.latitude, p.longitude))
             .toList();
-        debugPrint(
+        logger.info(
           '[RESUME] Loaded ${_pathPoints.length} path points from storage',
         );
       }
@@ -122,7 +123,7 @@ class TripController extends ChangeNotifier {
   /// Discard incomplete trip (user chose not to resume)
   Future<void> discardIncompleteTrip() async {
     await _storageService.clearTripSettings();
-    debugPrint('[RESUME] Discarded incomplete trip');
+    logger.info('[RESUME] Discarded incomplete trip');
   }
 
   // -----------------------------
@@ -135,11 +136,11 @@ class TripController extends ChangeNotifier {
       final unsyncedPoints = _storageService.getUnsyncedPoints();
 
       if (unsyncedPoints.isEmpty) {
-        debugPrint('[SYNC] No unsynced points to upload');
+        logger.info('[SYNC] No unsynced points to upload');
         return;
       }
 
-      debugPrint(
+      logger.info(
         '[SYNC] Found ${unsyncedPoints.length} unsynced points, attempting bulk sync...',
       );
 
@@ -154,7 +155,7 @@ class TripController extends ChangeNotifier {
         await _bulkSyncPoints(entry.value);
       }
     } catch (e) {
-      debugPrint('[SYNC ERROR] Error during bulk sync: $e');
+      logger.error('[SYNC ERROR] Error during bulk sync: $e');
     }
   }
 
@@ -180,13 +181,13 @@ class TripController extends ChangeNotifier {
             longitude: point.longitude,
             tripEvent: point.tripEventType ?? "update",
             tripName: point.tripId, // Use tripId as fallback
-            onLog: (log) => debugPrint('[SYNC] Bulk sync log: $log'),
+            onLog: (log) => logger.debug('[SYNC] Bulk sync log: $log'),
           );
 
           syncedPoints.add(point);
         }
       } catch (e) {
-        debugPrint('[SYNC ERROR] Failed to sync point: $e');
+        logger.error('[SYNC ERROR] Failed to sync point: $e');
         // Continue with next point
       }
     }
@@ -194,7 +195,7 @@ class TripController extends ChangeNotifier {
     // Mark successfully synced points
     if (syncedPoints.isNotEmpty) {
       await _storageService.markPointsAsSynced(syncedPoints);
-      debugPrint('[SYNC] Bulk synced ${syncedPoints.length} points');
+      logger.info('[SYNC] Bulk synced ${syncedPoints.length} points');
     }
   }
 
@@ -302,7 +303,7 @@ class TripController extends ChangeNotifier {
   /// Initialize background service (call this in main.dart)
   static Future<void> initializeBackgroundService() async {
     await BackgroundLocationService.initializeService();
-    debugPrint('[BACKGROUND] Background location service initialized');
+    logger.info('[BACKGROUND] Background location service initialized');
   }
 
   /// Get current location
@@ -315,7 +316,7 @@ class TripController extends ChangeNotifier {
       notifyListeners();
       await updateMapDisplay();
     } catch (e) {
-      debugPrint('Error getting current location: $e');
+      logger.error('Error getting current location: $e');
       rethrow;
     }
   }
@@ -343,7 +344,7 @@ class TripController extends ChangeNotifier {
       _routeInfo = null;
     }
 
-    debugPrint(
+    logger.debug(
       '[MAP] Map display updated: current=${_currentLocation != null}, destination=${_pickedLocation != null}, path points=${_pathPoints.length}',
     );
     notifyListeners();
@@ -369,7 +370,7 @@ class TripController extends ChangeNotifier {
       ),
     );
 
-    debugPrint(
+    logger.debug(
       '[PATH] Path polyline updated with ${_pathPoints.length} points',
     );
   }
@@ -398,7 +399,7 @@ class TripController extends ChangeNotifier {
             // Add to path points (traveled route)
             _pathPoints.add(latLng);
 
-            debugPrint(
+            logger.info(
               '[LOCATION] Location update: ${position.latitude}, ${position.longitude} (Path points: ${_pathPoints.length})',
             );
 
@@ -414,7 +415,7 @@ class TripController extends ChangeNotifier {
             }
           },
           onError: (error) {
-            debugPrint('[LOCATION ERROR] Location stream error: $error');
+            logger.error('[LOCATION ERROR] Location stream error: $error');
           },
           cancelOnError: false,
         );
@@ -446,7 +447,7 @@ class TripController extends ChangeNotifier {
         longitude: position.longitude,
         tripEvent: "update",
         tripName: _tripName!,
-        onLog: (log) => debugPrint('[LOCATION] Location update log: $log'),
+        onLog: (log) => logger.debug('[LOCATION] Location update log: $log'),
       );
 
       // Mark as synced after successful backend upload
@@ -456,9 +457,11 @@ class TripController extends ChangeNotifier {
         "update",
       );
 
-      debugPrint('[LOCATION] Location sent to backend and marked as synced');
+      logger.info('[LOCATION] Location sent to backend and marked as synced');
     } catch (e) {
-      debugPrint('[LOCATION ERROR] Error sending location (saved locally): $e');
+      logger.error(
+        '[LOCATION ERROR] Error sending location (saved locally): $e',
+      );
       // Point remains in Hive with isSynced=false for later retry
     }
   }
@@ -467,13 +470,13 @@ class TripController extends ChangeNotifier {
   void _stopLocationTracking() {
     _locationSubscription?.cancel();
     _locationSubscription = null;
-    debugPrint('[LOCATION] Location tracking stopped');
+    logger.info('[LOCATION] Location tracking stopped');
   }
 
   /// Stop background location sync
   Future<void> _stopBackgroundSync() async {
     await BackgroundLocationService.stopService();
-    debugPrint('[BACKGROUND] Background service stopped');
+    logger.info('[BACKGROUND] Background service stopped');
   }
 
   /// Start a trip with enhanced tracking
@@ -504,7 +507,7 @@ class TripController extends ChangeNotifier {
     final notificationGranted =
         await NotificationService.requestNotificationPermission();
     if (!notificationGranted) {
-      debugPrint(
+      logger.warning(
         '[NOTIFICATION WARNING] Notification permission denied - background service may not work optimally',
       );
     }
@@ -542,7 +545,7 @@ class TripController extends ChangeNotifier {
       _tripId = resp["trip_id"] ?? resp["id"];
       _tripName = resp["trip_name"];
 
-      debugPrint('[TRIP] Trip started: ID=$_tripId, Name=$_tripName');
+      logger.info('[TRIP] Trip started: ID=$_tripId, Name=$_tripName');
 
       // Save trip settings to Hive
       final tripSettings = TripSettings(
@@ -576,7 +579,7 @@ class TripController extends ChangeNotifier {
         groupId: groupId,
         tripName: _tripName!,
       );
-      debugPrint('[BACKGROUND] Background service started for trip $_tripId');
+      logger.info('[BACKGROUND] Background service started for trip $_tripId');
 
       // Start live location tracking (foreground) - handles location updates and backend sync
       _startLocationTracking();
@@ -644,7 +647,7 @@ class TripController extends ChangeNotifier {
 
       // Stop background service
       await BackgroundLocationService.stopService();
-      debugPrint('[BACKGROUND] Background service stopped');
+      logger.info('[BACKGROUND] Background service stopped');
 
       await _stopBackgroundSync();
 
@@ -654,16 +657,16 @@ class TripController extends ChangeNotifier {
 
       // Log trip statistics
       final stats = _storageService.getTripStats(_tripId.toString());
-      debugPrint('[TRIP] Trip finished:');
-      debugPrint('   - Total points recorded: ${stats['total']}');
-      debugPrint('   - Synced: ${stats['synced']}');
-      debugPrint('   - Unsynced: ${stats['unsynced']}');
+      logger.info('[TRIP] Trip finished:');
+      logger.info('   - Total points recorded: ${stats['total']}');
+      logger.info('   - Synced: ${stats['synced']}');
+      logger.info('   - Unsynced: ${stats['unsynced']}');
 
       notifyListeners();
 
-      debugPrint("[TRIP] Trip finished response: $resp");
+      logger.info("[TRIP] Trip finished response: $resp");
     } catch (e) {
-      debugPrint("[TRIP ERROR] Trip finish failed: $e");
+      logger.error("[TRIP ERROR] Trip finish failed: $e");
       // Even if backend fails, keep the finish point in Hive for later sync
       rethrow;
     }
@@ -704,11 +707,11 @@ class TripController extends ChangeNotifier {
             .toList(),
       };
 
-      debugPrint('[SUMMARY] Trip Summary:');
-      debugPrint('   - Total path points: ${_pathPoints.length}');
-      debugPrint('   - Trip ID: $_tripId');
-      debugPrint('   - Trip Name: $_tripName');
-      debugPrint(
+      logger.info('[SUMMARY] Trip Summary:');
+      logger.info('   - Total path points: ${_pathPoints.length}');
+      logger.info('   - Trip ID: $_tripId');
+      logger.info('   - Trip Name: $_tripName');
+      logger.info(
         '   - Path data prepared: ${tripSummaryData['path'].toString().substring(0, 100)}...',
       );
 
@@ -720,7 +723,7 @@ class TripController extends ChangeNotifier {
 
       onLog('Trip summary prepared with ${_pathPoints.length} points');
     } catch (e) {
-      debugPrint('[SUMMARY ERROR] Error sending trip summary: $e');
+      logger.error('[SUMMARY ERROR] Error sending trip summary: $e');
     }
   }
 
@@ -767,7 +770,7 @@ class TripController extends ChangeNotifier {
     try {
       final driverLocation = LatLng(latitude, longitude);
 
-      debugPrint(
+      logger.info(
         '[FCM] Updating driver location: lat=$latitude, lng=$longitude',
       );
 
@@ -781,7 +784,7 @@ class TripController extends ChangeNotifier {
 
       notifyListeners();
     } catch (e) {
-      debugPrint('[FCM ERROR] Failed to update driver location: $e');
+      logger.error('[FCM ERROR] Failed to update driver location: $e');
     }
   }
 
@@ -803,7 +806,7 @@ class TripController extends ChangeNotifier {
       ),
     );
 
-    debugPrint('[FCM] Driver marker added at: $location');
+    logger.info('[FCM] Driver marker added at: $location');
   }
 
   /// Update polyline showing driver's traveled path
@@ -826,6 +829,6 @@ class TripController extends ChangeNotifier {
     // Add updated driver path
     _polylines.add(driverPathPolyline);
 
-    debugPrint('[FCM] Driver path polyline updated with driver location');
+    logger.info('[FCM] Driver path polyline updated with driver location');
   }
 }

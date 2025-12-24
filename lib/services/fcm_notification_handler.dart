@@ -5,6 +5,8 @@ import 'package:firebase_core/firebase_core.dart';
 import '../main.dart' show tripViewerControllers;
 import '../models/trip_update_data.dart';
 import '../widgets/status_widget.dart';
+import '../utils/app_logger.dart';
+import 'announcement_service.dart';
 
 /// Global NavigatorKey for navigation from background handlers
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -14,7 +16,7 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp();
-  debugPrint(
+  logger.info(
     '[FCM] Background message received: ${message.notification?.title}',
   );
   await FCMNotificationHandler.handleBackgroundMessage(message);
@@ -26,12 +28,12 @@ class FCMNotificationHandler {
   /// Handle foreground messages (app is open and active)
   static Future<void> handleForegroundMessage(RemoteMessage message) async {
     try {
-      debugPrint('[FCM] Processing foreground message...');
+      logger.info('[FCM] Processing foreground message...');
 
       final data = parsePayload(message);
       final type = data['type'] as String?;
 
-      debugPrint('[FCM] Message type: $type data: $data');
+      logger.debug('[FCM] Message type: $type data: $data');
 
       // Handle different notification types
       switch (type) {
@@ -47,11 +49,15 @@ class FCMNotificationHandler {
 
           // Update UI if on GroupDetailsPage
           _updateTripUI(data);
+
+          // Announce trip start
+          final groupName = data['group_name'] as String? ?? 'your group';
+          await announcementService.announce('Trip started for $groupName');
           break;
 
         case 'trip_updated':
           // Silent update - only update UI, no notification
-          debugPrint('[FCM] Trip update - updating UI silently');
+          logger.debug('[FCM] Trip update - updating UI silently');
           _updateTripUI(data);
           break;
 
@@ -67,36 +73,39 @@ class FCMNotificationHandler {
 
           // Update UI
           _updateTripUI(data);
+
+          // Announce trip end
+          await announcementService.announce('Trip Ended');
           break;
 
         default:
-          debugPrint('[FCM] Unknown notification type: $type');
+          logger.warning('[FCM] Unknown notification type: $type');
       }
     } catch (e) {
-      debugPrint('[FCM ERROR] Error handling foreground message: $e');
+      logger.error('[FCM ERROR] Error handling foreground message: $e');
     }
   }
 
   /// Handle background messages (app is in background but not terminated)
   static Future<void> handleBackgroundMessage(RemoteMessage message) async {
     try {
-      debugPrint('[FCM] Processing background message...');
+      logger.info('[FCM] Processing background message...');
 
       final data = parsePayload(message);
       final type = data['type'] as String?;
 
-      debugPrint('[FCM] Background message type: $type');
+      logger.debug('[FCM] Background message type: $type');
 
       // For background messages, system handles notification display
       // We only process trip_update silently (no notification)
       if (type == 'trip_update') {
-        debugPrint(
+        logger.debug(
           '[FCM] Trip update in background - data saved for later retrieval',
         );
         // Could save to Hive here for later UI update
       }
     } catch (e) {
-      debugPrint('[FCM ERROR] Error handling background message: $e');
+      logger.error('[FCM ERROR] Error handling background message: $e');
     }
   }
 
@@ -119,12 +128,12 @@ class FCMNotificationHandler {
       final data = parsePayload(message);
       final type = data['type'] as String?;
 
-      debugPrint('[FCM] Notification tapped - type: $type');
+      logger.info('[FCM] Notification tapped - type: $type');
 
       // Navigate based on notification type
       navigateToScreen(data);
     } catch (e) {
-      debugPrint('[FCM ERROR] Error handling notification tap: $e');
+      logger.error('[FCM ERROR] Error handling notification tap: $e');
     }
   }
 
@@ -136,7 +145,7 @@ class FCMNotificationHandler {
       final tripId = data['trip_id'] as String?;
 
       if (navigatorKey.currentContext == null) {
-        debugPrint('[FCM] Navigator context not available yet');
+        logger.warning('[FCM] Navigator context not available yet');
         return;
       }
 
@@ -144,7 +153,7 @@ class FCMNotificationHandler {
         case 'trip_start':
         case 'trip_update':
           if (groupId != null) {
-            debugPrint('[FCM] Navigating to GroupDetailsPage: $groupId');
+            logger.debug('[FCM] Navigating to GroupDetailsPage: $groupId');
             // Import and use GroupDetailsPage
             // navigatorKey.currentState?.push(
             //   MaterialPageRoute(
@@ -157,32 +166,32 @@ class FCMNotificationHandler {
 
         case 'trip_end':
           if (groupId != null) {
-            debugPrint('[FCM] Navigating to trip summary: $tripId');
+            logger.debug('[FCM] Navigating to trip summary: $tripId');
             // Navigate to trip summary page
             // Implementation depends on existing trip summary UI
           }
           break;
 
         default:
-          debugPrint('[FCM] No navigation defined for type: $type');
+          logger.warning('[FCM] No navigation defined for type: $type');
       }
     } catch (e) {
-      debugPrint('[FCM ERROR] Error navigating to screen: $e');
+      logger.error('[FCM ERROR] Error navigating to screen: $e');
     }
   }
 
   /// Update trip UI with location data from notification
   static void _updateTripUI(Map<String, dynamic> data) {
     try {
-      debugPrint('[FCM] Updating trip UI with data: $data');
+      logger.debug('[FCM] Updating trip UI with data: $data');
 
       // Parse FCM data into typed object
       final updateData = TripUpdateData.fromFCM(data);
 
-      debugPrint(
+      logger.debug(
         '[FCM] Trip update parsed: ${updateData.eventType} for trip ${updateData.tripId}',
       );
-      debugPrint(
+      logger.debug(
         '[FCM] Location: ${updateData.latitude}, ${updateData.longitude}',
       );
 
@@ -191,7 +200,7 @@ class FCMNotificationHandler {
       final controller = tripViewerControllers[updateData.groupId];
 
       if (controller == null) {
-        debugPrint(
+        logger.warning(
           '[FCM] No active controller for group ${updateData.groupId}',
         );
         // Show status message anyway
@@ -206,27 +215,27 @@ class FCMNotificationHandler {
       switch (updateData.eventType) {
         case "trip_started":
           controller.handleTripStart(updateData);
-          debugPrint('[FCM] Trip start handled by controller');
+          logger.debug('[FCM] Trip start handled by controller');
           break;
 
         case "trip_updated":
           controller.handleTripUpdate(updateData);
-          debugPrint('[FCM] Trip update handled by controller');
+          logger.debug('[FCM] Trip update handled by controller');
           break;
 
         case "trip_finished":
           controller.handleTripFinish(updateData);
-          debugPrint('[FCM] Trip finish handled by controller');
+          logger.debug('[FCM] Trip finish handled by controller');
           break;
 
         default:
-          debugPrint('[FCM] Unknown event type: ${updateData.eventType}');
+          logger.warning('[FCM] Unknown event type: ${updateData.eventType}');
           showMessageInStatus('error', 'Unknown trip event type');
       }
 
-      debugPrint('[FCM] Trip UI update completed');
+      logger.debug('[FCM] Trip UI update completed');
     } catch (e) {
-      debugPrint('[FCM ERROR] Error updating trip UI: $e');
+      logger.error('[FCM ERROR] Error updating trip UI: $e');
       showMessageInStatus('error', 'Failed to process trip update');
     }
   }
@@ -246,7 +255,7 @@ class FCMNotificationHandler {
         }
       }
     } catch (e) {
-      debugPrint('[FCM ERROR] Error extracting location: $e');
+      logger.error('[FCM ERROR] Error extracting location: $e');
     }
     return null;
   }
@@ -265,7 +274,7 @@ class EnhancedNotificationService {
     required NotificationChannelType channelType,
   }) async {
     try {
-      debugPrint(
+      logger.debug(
         '[FCM] Showing notification: $title (sound: $playSound, channel: $channelType)',
       );
 
@@ -282,9 +291,9 @@ class EnhancedNotificationService {
       //   payload: jsonEncode(data),
       // );
 
-      debugPrint('[FCM] Notification displayed successfully');
+      logger.debug('[FCM] Notification displayed successfully');
     } catch (e) {
-      debugPrint('[FCM ERROR] Failed to show notification: $e');
+      logger.error('[FCM ERROR] Failed to show notification: $e');
     }
   }
 }

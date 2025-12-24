@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../map_srvc/gmaps_service.dart';
 import '../map_srvc/models/place_coordinates.dart';
+import '../utils/app_logger.dart';
 
 class SearchPlaceWidget extends StatefulWidget {
   final GoogleMapController? mapController;
@@ -61,7 +62,7 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
       return;
     }
 
-    debugPrint('[SEARCH] Searching for: $input');
+    logger.debug('[SEARCH] Searching for: $input');
     setState(() {
       _isSearchPlaceLoading = true;
       _errorSearchPlace = null;
@@ -74,21 +75,21 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
           _predictions = [];
           _isSearchPlaceLoading = false;
         });
-        debugPrint('[SEARCH] Cleared: query too short');
+        logger.debug('[SEARCH] Cleared: query too short');
         return;
       }
 
-      debugPrint('[SEARCH] Calling API with input: "$input"');
+      logger.debug('[SEARCH] Calling API with input: "$input"');
       final response = await _gMapService.getPlaceAutocomplete(input);
 
-      debugPrint('[SEARCH] API Response:');
-      debugPrint('   - Status: ${response.status}');
-      debugPrint('   - Has Results: ${response.hasResults}');
-      debugPrint('   - Predictions Count: ${response.predictions.length}');
-      debugPrint('   - Error Message: ${response.errorMessage}');
+      logger.debug('[SEARCH] API Response:');
+      logger.debug('   - Status: ${response.status}');
+      logger.debug('   - Has Results: ${response.hasResults}');
+      logger.debug('   - Predictions Count: ${response.predictions.length}');
+      logger.debug('   - Error Message: ${response.errorMessage}');
 
       if (response.predictions.isNotEmpty) {
-        debugPrint(
+        logger.debug(
           '[SEARCH] First prediction: ${response.predictions.first.description}',
         );
       }
@@ -96,34 +97,34 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
       setState(() {
         if (response.hasResults) {
           _predictions = response.predictions;
-          debugPrint(
+          logger.debug(
             '[SEARCH] SET STATE: Updated predictions to ${_predictions.length} items',
           );
           for (int i = 0; i < _predictions.length && i < 3; i++) {
-            debugPrint('   [$i] ${_predictions[i].description}');
+            logger.debug('   [$i] ${_predictions[i].description}');
           }
         } else {
           _predictions = [];
-          debugPrint(
+          logger.debug(
             '[SEARCH] SET STATE: No results from API (status: ${response.status})',
           );
         }
         _isSearchPlaceLoading = false;
       });
 
-      debugPrint(
+      logger.debug(
         '[SEARCH] After setState: _predictions.length = ${_predictions.length}, _placeSearchQuery = "$_placeSearchQuery"',
       );
     } on PlaceServiceException catch (e) {
-      debugPrint('[SEARCH ERROR] Search error: ${e.message}');
+      logger.debug('[SEARCH ERROR] Search error: ${e.message}');
       setState(() {
         _errorSearchPlace = e.message;
         _predictions = [];
         _isSearchPlaceLoading = false;
       });
     } catch (e, stackTrace) {
-      debugPrint('[SEARCH ERROR] Unexpected error: $e');
-      debugPrint('Stack trace: $stackTrace');
+      logger.debug('[SEARCH ERROR] Unexpected error: $e');
+      logger.debug('Stack trace: $stackTrace');
       setState(() {
         _errorSearchPlace = 'Unexpected error: $e';
         _predictions = [];
@@ -143,12 +144,12 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
       );
 
       if (details.hasDetails) {
-        debugPrint('[SEARCH] Place details: ${details.details}');
+        logger.debug('[SEARCH] Place details: ${details.details}');
         final coords = details.details!.coordinates;
         final latLng = LatLng(coords.latitude, coords.longitude);
         final name = details.details!.name;
 
-        debugPrint('[SEARCH] Selected place: $name at $latLng');
+        logger.debug('[SEARCH] Selected place: $name at $latLng');
 
         // Clear search state first
         setState(() {
@@ -160,7 +161,7 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
         // Notify parent widget to update map and show marker
         widget.onPlaceSelected(latLng, name);
 
-        debugPrint('[SEARCH] Map should now show pin at $latLng');
+        logger.debug('[SEARCH] Map should now show pin at $latLng');
       }
     } on PlaceServiceException catch (e) {
       if (mounted) {
@@ -180,7 +181,7 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
       return;
     }
 
-    debugPrint('[HOME SEARCH] Searching for: $input');
+    logger.debug('[HOME SEARCH] Searching for: $input');
     setState(() {
       _isHomeSearchLoading = true;
       _errorHomeSearch = null;
@@ -192,42 +193,44 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
           _homePredictions = [];
           _isHomeSearchLoading = false;
         });
-        debugPrint('[HOME SEARCH] Cleared: query too short');
+        logger.debug('[HOME SEARCH] Cleared: query too short');
         return;
       }
 
-      debugPrint('[HOME SEARCH] Calling API with input: "$input"');
+      logger.debug('[HOME SEARCH] Calling API with input: "$input"');
       final response = await _gMapService.getPlaceAutocomplete(input);
 
-      debugPrint('[HOME SEARCH] API Response:');
-      debugPrint('   - Status: ${response.status}');
-      debugPrint('   - Has Results: ${response.hasResults}');
-      debugPrint('   - Predictions Count: ${response.predictions.length}');
+      logger.debug('[HOME SEARCH] API Response:');
+      logger.debug('   - Status: ${response.status}');
+      logger.debug('   - Has Results: ${response.hasResults}');
+      logger.debug('   - Predictions Count: ${response.predictions.length}');
 
       setState(() {
         if (response.hasResults) {
           _homePredictions = response.predictions;
-          debugPrint(
+          logger.debug(
             '[HOME SEARCH] SET STATE: Updated predictions to ${_homePredictions.length} items',
           );
         } else {
           _homePredictions = [];
-          debugPrint(
+          logger.debug(
             '[HOME SEARCH] SET STATE: No results from API (status: ${response.status})',
           );
         }
         _isHomeSearchLoading = false;
       });
     } on PlaceServiceException catch (e) {
-      debugPrint('[HOME SEARCH ERROR] Search error: ${e.message}');
+      logger.debug('[HOME SEARCH ERROR] Search error: ${e.message}');
       setState(() {
         _errorHomeSearch = e.message;
         _homePredictions = [];
         _isHomeSearchLoading = false;
       });
     } catch (e, stackTrace) {
-      debugPrint('[HOME SEARCH ERROR] Unexpected error: $e');
-      debugPrint('Stack trace: $stackTrace');
+      logger.error(
+        '[HOME SEARCH ERROR] Unexpected error: $e Stack trace: $stackTrace',
+      );
+
       setState(() {
         _errorHomeSearch = 'Unexpected error: $e';
         _homePredictions = [];
@@ -247,7 +250,7 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
       );
 
       if (details.hasDetails) {
-        debugPrint('[HOME SEARCH] Place details: ${details.details}');
+        logger.debug('[HOME SEARCH] Place details: ${details.details}');
         final coords = details.details!.coordinates;
         final latLng = LatLng(coords.latitude, coords.longitude);
         final name = details.details!.name;
@@ -255,7 +258,7 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
             ? details.details!.formattedAddress
             : name;
 
-        debugPrint('[HOME SEARCH] Selected home address: $name at $latLng');
+        logger.debug('[HOME SEARCH] Selected home address: $name at $latLng');
 
         // Clear search state first
         setState(() {
@@ -279,7 +282,7 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
           widget.onHomeAddressSelected!(latLng, address);
         }
 
-        debugPrint('[HOME SEARCH] Home address set to: $address');
+        logger.debug('[HOME SEARCH] Home address set to: $address');
       }
     } on PlaceServiceException catch (e) {
       if (mounted) {
@@ -292,7 +295,7 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
 
   @override
   Widget build(BuildContext context) {
-    debugPrint(
+    logger.debug(
       '[SEARCH] BUILD: _placeSearchQuery="$_placeSearchQuery", _predictions.length=${_predictions.length}, _isLoading=$_isSearchPlaceLoading',
     );
 
@@ -309,7 +312,7 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
                   contentPadding: EdgeInsets.symmetric(horizontal: 8),
                 ),
                 onChanged: (String value) {
-                  debugPrint(
+                  logger.debug(
                     '[SEARCH] Text changed: "$value" (length: ${value.length})',
                   );
                   _debounceTimer?.cancel();
@@ -322,18 +325,18 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
                       _isSearchPlaceLoading = false;
                       _placeSearchQuery = '';
                     });
-                    debugPrint('[SEARCH] Cleared: query too short');
+                    logger.debug('[SEARCH] Cleared: query too short');
                     return;
                   }
 
                   // Create new timer only if 3+ characters
-                  debugPrint('[SEARCH] Starting debounce timer...');
+                  logger.debug('[SEARCH] Starting debounce timer...');
                   _debounceTimer = Timer(const Duration(milliseconds: 500), () {
-                    debugPrint('[SEARCH] Debounce timer fired!');
+                    logger.debug('[SEARCH] Debounce timer fired!');
                     setState(() {
                       _placeSearchQuery = value;
                     });
-                    debugPrint('[SEARCH] Set query: "$_placeSearchQuery"');
+                    logger.debug('[SEARCH] Set query: "$_placeSearchQuery"');
                     _searchPlaces(value);
                   });
                 },
@@ -367,17 +370,17 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
             ),
             child: Builder(
               builder: (context) {
-                debugPrint(
+                logger.debug(
                   '[SEARCH] Container builder: _isLoading=$_isSearchPlaceLoading, _predictions.length=${_predictions.length}',
                 );
 
                 if (_isSearchPlaceLoading) {
-                  debugPrint('[SEARCH]    -> Showing loading indicator');
+                  logger.debug('[SEARCH]    -> Showing loading indicator');
                   return const Center(child: CircularProgressIndicator());
                 }
 
                 if (_predictions.isEmpty) {
-                  debugPrint(
+                  logger.debug(
                     '[SEARCH]    -> Showing empty message: ${_errorSearchPlace ?? "No results found"}',
                   );
                   return Center(
@@ -388,14 +391,14 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
                   );
                 }
 
-                debugPrint(
+                logger.debug(
                   '[SEARCH]    -> Building ListView with ${_predictions.length} items',
                 );
                 return ListView.builder(
                   shrinkWrap: true,
                   itemCount: _predictions.length,
                   itemBuilder: (context, index) {
-                    debugPrint(
+                    logger.debug(
                       '[SEARCH]       Building item $index: ${_predictions[index].description}',
                     );
                     return ListTile(
@@ -406,7 +409,7 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
                         overflow: TextOverflow.ellipsis,
                       ),
                       onTap: () {
-                        debugPrint(
+                        logger.debug(
                           '[SEARCH] Tapped: ${_predictions[index].placeId}',
                         );
                         _setCoordinatesFromPlaceId(_predictions[index].placeId);
@@ -429,7 +432,7 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
                   contentPadding: EdgeInsets.symmetric(horizontal: 8),
                 ),
                 onChanged: (String value) {
-                  debugPrint(
+                  logger.debug(
                     '[HOME SEARCH] Text changed: "$value" (length: ${value.length})',
                   );
                   _homeDebounceTimer?.cancel();
@@ -442,20 +445,20 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
                       _isHomeSearchLoading = false;
                       _homeSearchQuery = '';
                     });
-                    debugPrint('[HOME SEARCH] Cleared: query too short');
+                    logger.debug('[HOME SEARCH] Cleared: query too short');
                     return;
                   }
 
                   // Create new timer only if 3+ characters
-                  debugPrint('[HOME SEARCH] Starting debounce timer...');
+                  logger.debug('[HOME SEARCH] Starting debounce timer...');
                   _homeDebounceTimer = Timer(
                     const Duration(milliseconds: 500),
                     () {
-                      debugPrint('[HOME SEARCH] Debounce timer fired!');
+                      logger.debug('[HOME SEARCH] Debounce timer fired!');
                       setState(() {
                         _homeSearchQuery = value;
                       });
-                      debugPrint(
+                      logger.debug(
                         '[HOME SEARCH] Set query: "$_homeSearchQuery"',
                       );
                       _searchHomeAddress(value);
@@ -507,17 +510,17 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
             ),
             child: Builder(
               builder: (context) {
-                debugPrint(
+                logger.debug(
                   '[HOME SEARCH] Container builder: _isLoading=$_isHomeSearchLoading, _homePredictions.length=${_homePredictions.length}',
                 );
 
                 if (_isHomeSearchLoading) {
-                  debugPrint('[HOME SEARCH]    -> Showing loading indicator');
+                  logger.debug('[HOME SEARCH]    -> Showing loading indicator');
                   return const Center(child: CircularProgressIndicator());
                 }
 
                 if (_homePredictions.isEmpty) {
-                  debugPrint(
+                  logger.debug(
                     '[HOME SEARCH]    -> Showing empty message: ${_errorHomeSearch ?? "No results found"}',
                   );
                   return Center(
@@ -528,14 +531,14 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
                   );
                 }
 
-                debugPrint(
+                logger.debug(
                   '[HOME SEARCH]    -> Building ListView with ${_homePredictions.length} items',
                 );
                 return ListView.builder(
                   shrinkWrap: true,
                   itemCount: _homePredictions.length,
                   itemBuilder: (context, index) {
-                    debugPrint(
+                    logger.debug(
                       '[HOME SEARCH]       Building item $index: ${_homePredictions[index].description}',
                     );
                     return ListTile(
@@ -546,7 +549,7 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
                         overflow: TextOverflow.ellipsis,
                       ),
                       onTap: () {
-                        debugPrint(
+                        logger.debug(
                           '[HOME SEARCH] Tapped: ${_homePredictions[index].placeId}',
                         );
                         _setHomeAddressFromPlaceId(

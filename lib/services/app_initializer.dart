@@ -4,7 +4,9 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'location_storage_service.dart';
 import 'fcm_service.dart';
 import 'fcm_notification_handler.dart';
+import 'announcement_service.dart';
 import '../controllers/trip_controller.dart';
+import '../utils/app_logger.dart';
 
 /// Centralized service initializer
 /// Handles initialization of all app services in the correct order
@@ -14,7 +16,7 @@ class AppInitializer {
   static Future<void> initializeAllServices({
     required LocationStorageService storageService,
   }) async {
-    debugPrint('[APP INIT] Starting service initialization...');
+    logger.info('[APP INIT] Starting service initialization...');
 
     try {
       // 1. Initialize Hive Storage (highest priority - needed by all other services)
@@ -29,9 +31,12 @@ class AppInitializer {
       // 4. Initialize Background Location Service
       await _initializeBackgroundLocation();
 
-      debugPrint('[APP INIT] All services initialized successfully');
+      // 5. Initialize TTS Announcement Service
+      await _initializeAnnouncement();
+
+      logger.info('[APP INIT] All services initialized successfully');
     } catch (e) {
-      debugPrint('[APP INIT ERROR] Service initialization failed: $e');
+      logger.error('[APP INIT ERROR] Service initialization failed: $e');
       // Don't rethrow - allow app to start even if some services fail
     }
   }
@@ -41,11 +46,11 @@ class AppInitializer {
     LocationStorageService storageService,
   ) async {
     try {
-      debugPrint('[APP INIT] Initializing Hive storage...');
+      logger.info('[APP INIT] Initializing Hive storage...');
       await storageService.init();
-      debugPrint('[APP INIT] Hive storage initialized');
+      logger.info('[APP INIT] Hive storage initialized');
     } catch (e) {
-      debugPrint('[APP INIT ERROR] Hive initialization failed: $e');
+      logger.error('[APP INIT ERROR] Hive initialization failed: $e');
       rethrow; // Hive is critical - can't continue without it
     }
   }
@@ -53,7 +58,7 @@ class AppInitializer {
   /// Initialize Firebase Core
   static Future<void> _initializeFirebase() async {
     try {
-      debugPrint('[APP INIT] Initializing Firebase...');
+      logger.info('[APP INIT] Initializing Firebase...');
 
       // Only initialize if not already initialized
       if (Firebase.apps.isEmpty) {
@@ -65,16 +70,16 @@ class AppInitializer {
             projectId: "otptest1-cbe83",
           ),
         );
-        debugPrint('[APP INIT] Firebase initialized');
+        logger.info('[APP INIT] Firebase initialized');
       } else {
-        debugPrint('[APP INIT] Firebase already initialized');
+        logger.info('[APP INIT] Firebase already initialized');
       }
 
       // Register background message handler
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
-      debugPrint('[APP INIT] FCM background handler registered');
+      logger.info('[APP INIT] FCM background handler registered');
     } catch (e) {
-      debugPrint('[APP INIT ERROR] Firebase initialization failed: $e');
+      logger.error('[APP INIT ERROR] Firebase initialization failed: $e');
       // Don't rethrow - app can work without FCM
     }
   }
@@ -82,12 +87,12 @@ class AppInitializer {
   /// Initialize FCM Service
   static Future<void> _initializeFCM() async {
     try {
-      debugPrint('[APP INIT] Initializing FCM service...');
+      logger.info('[APP INIT] Initializing FCM service...');
       final fcmService = FCMService();
       await fcmService.initialize();
-      debugPrint('[APP INIT] FCM service initialized');
+      logger.info('[APP INIT] FCM service initialized');
     } catch (e) {
-      debugPrint('[APP INIT ERROR] FCM initialization failed: $e');
+      logger.error('[APP INIT ERROR] FCM initialization failed: $e');
       // Don't rethrow - app can work without FCM
     }
   }
@@ -95,14 +100,28 @@ class AppInitializer {
   /// Initialize Background Location Service
   static Future<void> _initializeBackgroundLocation() async {
     try {
-      debugPrint('[APP INIT] Initializing background location service...');
+      logger.info('[APP INIT] Initializing background location service...');
       await TripController.initializeBackgroundService();
-      debugPrint('[APP INIT] Background location service initialized');
+      logger.info('[APP INIT] Background location service initialized');
     } catch (e) {
-      debugPrint(
+      logger.error(
         '[APP INIT ERROR] Background location initialization failed: $e',
       );
       // Don't rethrow - app can work without background location
+    }
+  }
+
+  /// Initialize TTS Announcement Service
+  static Future<void> _initializeAnnouncement() async {
+    try {
+      logger.info('[APP INIT] Initializing TTS announcement service...');
+      await announcementService.initialize();
+      logger.info('[APP INIT] TTS announcement service initialized');
+    } catch (e) {
+      logger.error(
+        '[APP INIT ERROR] TTS announcement initialization failed: $e',
+      );
+      // Don't rethrow - app can work without TTS announcements
     }
   }
 }

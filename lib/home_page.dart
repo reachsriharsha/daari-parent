@@ -4,6 +4,7 @@ import 'services/group_service.dart';
 import 'group_details_page.dart';
 import 'main.dart'; // To access storageService
 import 'widgets/status_widget.dart';
+import 'screens/log_viewer_screen.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -58,6 +59,32 @@ class _HomePageState extends State<HomePage> {
               );
               await _fetchGroups();
             },
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert),
+            tooltip: 'More options',
+            onSelected: (value) {
+              if (value == 'debug_logs') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const LogViewerScreen(),
+                  ),
+                );
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'debug_logs',
+                child: Row(
+                  children: [
+                    Icon(Icons.bug_report, size: 20),
+                    SizedBox(width: 12),
+                    Text('Debug Logs'),
+                  ],
+                ),
+              ),
+            ],
           ),
         ],
       ),

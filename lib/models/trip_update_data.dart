@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/app_logger.dart';
 
 /// Model for trip update data received from FCM notifications
 /// Provides type-safe parsing and validation of FCM payload
@@ -57,8 +58,10 @@ class TripUpdateData {
       if (data.containsKey('timestamp')) {
         try {
           timestamp = DateTime.parse(data['timestamp'] as String);
-        } catch (e) {
-          debugPrint('[FCM] Invalid timestamp format, using current time: $e');
+        } catch (e, stackTrace) {
+          logger.error(
+            '[FCM] Invalid timestamp format, using current time: $e stack trace: $stackTrace',
+          );
           timestamp = DateTime.now();
         }
       } else {
@@ -85,9 +88,10 @@ class TripUpdateData {
         groupId: groupId,
         driverName: data['driver_name'] as String?,
       );
-    } catch (e) {
-      debugPrint('[FCM ERROR] Failed to parse trip update data: $e');
-      debugPrint('[FCM ERROR] Raw data: $data');
+    } catch (e, stackTrace) {
+      logger.error(
+        '[FCM ERROR] Failed to parse trip update data: $e, stack trace: $stackTrace',
+      );
       rethrow;
     }
   }

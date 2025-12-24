@@ -4,6 +4,7 @@ import 'services/location_storage_service.dart';
 import 'services/app_initializer.dart';
 import 'services/fcm_notification_handler.dart';
 import 'controllers/trip_viewer_controller.dart';
+import 'utils/app_logger.dart';
 
 // Global instance of storage service
 final LocationStorageService storageService = LocationStorageService();
@@ -44,7 +45,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     // When app comes to foreground, trigger sync check
     if (state == AppLifecycleState.resumed) {
-      debugPrint('[APP LIFECYCLE] App resumed - checking for unsynced data');
+      logger.debug('[APP LIFECYCLE] App resumed - checking for unsynced data');
       // Trigger bulk sync in TripController if it's active
       // This will be handled by the TripController when it's notified
     }

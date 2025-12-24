@@ -12,6 +12,7 @@ import '../models/trip_settings.dart';
 import '../models/app_settings.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../utils/app_logger.dart';
 
 class BackgroundLocationService {
   static const String _notificationChannelId = 'trip_tracking_channel';
@@ -115,7 +116,7 @@ class BackgroundLocationService {
       return;
     }
 
-    debugPrint('[BACKGROUND] Service started for trip $tripId');
+    logger.info('[BACKGROUND] Service started for trip $tripId');
 
     // Setup location tracking
     StreamSubscription<Position>? locationSubscription;
@@ -130,7 +131,7 @@ class BackgroundLocationService {
         Geolocator.getPositionStream(
           locationSettings: locationSettings,
         ).listen((Position position) async {
-          debugPrint(
+          logger.info(
             '[BACKGROUND] Location update: ${position.latitude}, ${position.longitude}',
           );
 
@@ -149,7 +150,7 @@ class BackgroundLocationService {
 
           try {
             await locationBox.add(locationPoint);
-            debugPrint('[BACKGROUND] Saved to Hive');
+            logger.info('[BACKGROUND] Saved to Hive');
 
             // Try to sync to backend
             if (idToken != null && backendUrl != null && tripName != null) {
@@ -182,10 +183,10 @@ class BackgroundLocationService {
                   await locationBox.put(key, updatedPoint);
                 }
               }
-              debugPrint('[BACKGROUND] Synced to backend');
+              logger.info('[BACKGROUND] Synced to backend');
             }
           } catch (e) {
-            debugPrint('[BACKGROUND ERROR] Error: $e');
+            logger.error('[BACKGROUND ERROR] Error: $e');
           }
 
           // Update notification
@@ -199,7 +200,7 @@ class BackgroundLocationService {
 
     // Listen for stop command
     service.on('stopService').listen((event) {
-      debugPrint('[BACKGROUND] Stop command received');
+      logger.info('[BACKGROUND] Stop command received');
       locationSubscription?.cancel();
       service.stopSelf();
     });

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'location_storage_service.dart';
 import 'fcm_notification_handler.dart';
+import '../utils/app_logger.dart';
 
 /// FCM Service for handling Firebase Cloud Messaging
 /// Manages token retrieval, refresh, and message handler registration
@@ -22,7 +23,7 @@ class FCMService {
   /// - Listens for token refresh
   Future<void> initialize() async {
     try {
-      debugPrint('[FCM] Initializing FCM service...');
+      logger.info('[FCM] Initializing FCM service...');
 
       // Request notification permissions
       await requestPermissions();
@@ -36,9 +37,9 @@ class FCMService {
       // Setup token refresh listener
       setupFcmTokenRefreshListener();
 
-      debugPrint('[FCM] FCM service initialized successfully');
+      logger.info('[FCM] FCM service initialized successfully');
     } catch (e) {
-      debugPrint('[FCM ERROR] Failed to initialize FCM: $e');
+      logger.error('[FCM ERROR] Failed to initialize FCM: $e');
       // Don't throw - allow app to continue without FCM
     }
   }
@@ -57,15 +58,15 @@ class FCMService {
       );
 
       if (settings.authorizationStatus == AuthorizationStatus.authorized) {
-        debugPrint('[FCM] User granted notification permissions');
+        logger.info('[FCM] User granted notification permissions');
       } else if (settings.authorizationStatus ==
           AuthorizationStatus.provisional) {
-        debugPrint('[FCM] User granted provisional notification permissions');
+        logger.info('[FCM] User granted provisional notification permissions');
       } else {
-        debugPrint('[FCM] User declined notification permissions');
+        logger.warning('[FCM] User declined notification permissions');
       }
     } catch (e) {
-      debugPrint('[FCM ERROR] Failed to request permissions: $e');
+      logger.error('[FCM ERROR] Failed to request permissions: $e');
     }
   }
 
@@ -76,15 +77,15 @@ class FCMService {
       _fcmToken = await _messaging.getToken();
 
       if (_fcmToken != null) {
-        debugPrint('[FCM] Token retrieved: ${_fcmToken!.substring(0, 20)}...');
+        logger.info('[FCM] Token retrieved: ${_fcmToken!.substring(0, 20)}...');
         await saveFcmTokenToHive(_fcmToken!);
         return _fcmToken;
       } else {
-        debugPrint('[FCM ERROR] Failed to get token - returned null');
+        logger.error('[FCM ERROR] Failed to get token - returned null');
         return null;
       }
     } catch (e) {
-      debugPrint('[FCM ERROR] Failed to get token: $e');
+      logger.error('[FCM ERROR] Failed to get token: $e');
       return null;
     }
   }
@@ -94,18 +95,18 @@ class FCMService {
   void setupFcmTokenRefreshListener() {
     FirebaseMessaging.instance.onTokenRefresh.listen(
       (String newToken) async {
-        debugPrint('[FCM] Token refreshed: ${newToken.substring(0, 20)}...');
+        logger.info('[FCM] Token refreshed: ${newToken.substring(0, 20)}...');
         _fcmToken = newToken;
         await saveFcmTokenToHive(newToken);
 
         // Note: Backend update will be handled by OtpService.refreshFcmToken()
         // Call it here if you want automatic backend sync on refresh
-        debugPrint(
+        logger.info(
           '[FCM] Token saved to Hive. Call OtpService.refreshFcmToken() to sync with backend.',
         );
       },
       onError: (error) {
-        debugPrint('[FCM ERROR] Token refresh error: $error');
+        logger.error('[FCM ERROR] Token refresh error: $error');
       },
     );
   }
@@ -114,7 +115,7 @@ class FCMService {
   void setupMessageHandlers() {
     // Foreground messages
     FirebaseMessaging.onMessage.listen((RemoteMessage message) {
-      debugPrint(
+      logger.info(
         '[FCM] Foreground message received: ${message.notification?.title}',
       );
       FCMNotificationHandler.handleForegroundMessage(message);
@@ -122,18 +123,18 @@ class FCMService {
 
     // Background message handler (when app is in background but not terminated)
     // Note: Background handler is registered in main.dart as a top-level function
-    debugPrint('[FCM] Message handlers registered');
+    logger.info('[FCM] Message handlers registered');
 
     // Handle notification tap when app is in background
     FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
-      debugPrint('[FCM] Notification tapped (background): ${message.data}');
+      logger.info('[FCM] Notification tapped (background): ${message.data}');
       FCMNotificationHandler.handleNotificationTap(message);
     });
 
     // Handle notification tap when app was terminated
     _messaging.getInitialMessage().then((RemoteMessage? message) {
       if (message != null) {
-        debugPrint('[FCM] Notification tapped (terminated): ${message.data}');
+        logger.info('[FCM] Notification tapped (terminated): ${message.data}');
         FCMNotificationHandler.handleNotificationTap(message);
       }
     });
@@ -143,9 +144,9 @@ class FCMService {
   Future<void> saveFcmTokenToHive(String token) async {
     try {
       await _storageService.saveFcmToken(token);
-      debugPrint('[FCM] Token saved to Hive');
+      logger.info('[FCM] Token saved to Hive');
     } catch (e) {
-      debugPrint('[FCM ERROR] Failed to save token to Hive: $e');
+      logger.error('[FCM ERROR] Failed to save token to Hive: $e');
     }
   }
 
@@ -154,13 +155,15 @@ class FCMService {
     try {
       final token = await _storageService.getFcmToken();
       if (token != null) {
-        debugPrint('[FCM] Retrieved saved token: ${token.substring(0, 20)}...');
+        logger.info(
+          '[FCM] Retrieved saved token: ${token.substring(0, 20)}...',
+        );
       } else {
-        debugPrint('[FCM] No saved token found in Hive');
+        logger.info('[FCM] No saved token found in Hive');
       }
       return token;
     } catch (e) {
-      debugPrint('[FCM ERROR] Failed to get saved token: $e');
+      logger.error('[FCM ERROR] Failed to get saved token: $e');
       return null;
     }
   }
@@ -172,9 +175,9 @@ class FCMService {
   Future<void> subscribeToTopic(String topic) async {
     try {
       await _messaging.subscribeToTopic(topic);
-      debugPrint('[FCM] Subscribed to topic: $topic');
+      logger.info('[FCM] Subscribed to topic: $topic');
     } catch (e) {
-      debugPrint('[FCM ERROR] Failed to subscribe to topic $topic: $e');
+      logger.error('[FCM ERROR] Failed to subscribe to topic $topic: $e');
     }
   }
 
@@ -182,9 +185,9 @@ class FCMService {
   Future<void> unsubscribeFromTopic(String topic) async {
     try {
       await _messaging.unsubscribeFromTopic(topic);
-      debugPrint('[FCM] Unsubscribed from topic: $topic');
+      logger.info('[FCM] Unsubscribed from topic: $topic');
     } catch (e) {
-      debugPrint('[FCM ERROR] Failed to unsubscribe from topic $topic: $e');
+      logger.error('[FCM ERROR] Failed to unsubscribe from topic $topic: $e');
     }
   }
 }

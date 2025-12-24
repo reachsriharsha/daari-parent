@@ -9,6 +9,7 @@ import '../models/trip_status_data.dart';
 import '../models/trip_update_data.dart';
 import '../models/trip_viewing_state.dart';
 import '../services/location_storage_service.dart';
+import '../utils/app_logger.dart';
 
 /// Controller for viewing remote trips (parent app functionality)
 /// Manages state, map visualization, and persistence for FCM-received trip updates
@@ -49,7 +50,7 @@ class TripViewerController extends ChangeNotifier {
   /// Handle trip start event
   Future<void> handleTripStart(TripUpdateData data) async {
     try {
-      debugPrint('[VIEWER] Handling trip start: ${data.tripId}');
+      logger.info('[VIEWER] Handling trip start: ${data.tripId}');
 
       final startLocation = LatLng(data.latitude, data.longitude);
 
@@ -80,24 +81,24 @@ class TripViewerController extends ChangeNotifier {
 
       notifyListeners();
 
-      debugPrint(
+      logger.info(
         '[VIEWER] Trip start handled: ${_viewingState.totalPoints} points',
       );
     } catch (e) {
-      debugPrint('[VIEWER ERROR] Failed to handle trip start: $e');
+      logger.error('[VIEWER ERROR] Failed to handle trip start: $e');
     }
   }
 
   /// Handle trip update event
   Future<void> handleTripUpdate(TripUpdateData data) async {
     try {
-      debugPrint(
+      logger.info(
         '[VIEWER] Handling trip update: ${data.latitude}, ${data.longitude}',
       );
 
       // Ignore updates for different trip
       if (_viewingState.tripId != data.tripId) {
-        debugPrint(
+        logger.info(
           '[VIEWER] Ignoring update for different trip: ${data.tripId}',
         );
         return;
@@ -126,22 +127,22 @@ class TripViewerController extends ChangeNotifier {
 
       notifyListeners();
 
-      debugPrint(
+      logger.info(
         '[VIEWER] Trip update handled: ${_viewingState.totalPoints} points',
       );
     } catch (e) {
-      debugPrint('[VIEWER ERROR] Failed to handle trip update: $e');
+      logger.error('[VIEWER ERROR] Failed to handle trip update: $e');
     }
   }
 
   /// Handle trip finish event
   Future<void> handleTripFinish(TripUpdateData data) async {
     try {
-      debugPrint('[VIEWER] Handling trip finish: ${data.tripId}');
+      logger.info('[VIEWER] Handling trip finish: ${data.tripId}');
 
       // Ignore finish for different trip
       if (_viewingState.tripId != data.tripId) {
-        debugPrint(
+        logger.info(
           '[VIEWER] Ignoring finish for different trip: ${data.tripId}',
         );
         return;
@@ -174,29 +175,29 @@ class TripViewerController extends ChangeNotifier {
 
       notifyListeners();
 
-      debugPrint(
+      logger.info(
         '[VIEWER] Trip finish handled: ${_viewingState.totalPoints} total points',
       );
     } catch (e) {
-      debugPrint('[VIEWER ERROR] Failed to handle trip finish: $e');
+      logger.error('[VIEWER ERROR] Failed to handle trip finish: $e');
     }
   }
 
   /// Load active trip on app restart
   Future<void> loadActiveTrip() async {
     try {
-      debugPrint('[VIEWER] Loading active trip...');
+      logger.info('[VIEWER] Loading active trip...');
 
       // Check TripSettings for watching trip
       final tripSettings = _storageService.getTripSettings();
       final watchingTripId = tripSettings?.watchingTripId;
 
       if (watchingTripId == null) {
-        debugPrint('[VIEWER] No active watching trip found');
+        logger.info('[VIEWER] No active watching trip found');
         return;
       }
 
-      debugPrint('[VIEWER] Found watching trip: $watchingTripId');
+      logger.info('[VIEWER] Found watching trip: $watchingTripId');
 
       // Load all FCM-received points for this trip
       final allPoints = _storageService.getLocationPointsByTripId(
@@ -206,12 +207,12 @@ class TripViewerController extends ChangeNotifier {
         ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
       if (fcmPoints.isEmpty) {
-        debugPrint('[VIEWER] No FCM points found for trip');
+        logger.info('[VIEWER] No FCM points found for trip');
         await _clearWatchingTrip();
         return;
       }
 
-      debugPrint('[VIEWER] Loaded ${fcmPoints.length} FCM points');
+      logger.info('[VIEWER] Loaded ${fcmPoints.length} FCM points');
 
       // Rebuild viewing state
       final pathPoints = fcmPoints
@@ -252,9 +253,9 @@ class TripViewerController extends ChangeNotifier {
 
       notifyListeners();
 
-      debugPrint('[VIEWER] Active trip loaded successfully');
+      logger.info('[VIEWER] Active trip loaded successfully');
     } catch (e) {
-      debugPrint('[VIEWER ERROR] Failed to load active trip: $e');
+      logger.error('[VIEWER ERROR] Failed to load active trip: $e');
     }
   }
 
@@ -358,11 +359,11 @@ class TripViewerController extends ChangeNotifier {
 
       await _storageService.saveLocationPoint(point);
 
-      debugPrint(
+      logger.info(
         '[VIEWER] Saved FCM point: ${data.eventType} at ${data.latitude}, ${data.longitude}',
       );
     } catch (e) {
-      debugPrint('[VIEWER ERROR] Failed to save trip point: $e');
+      logger.error('[VIEWER ERROR] Failed to save trip point: $e');
     }
   }
 
@@ -374,9 +375,9 @@ class TripViewerController extends ChangeNotifier {
       settings.watchingGroupId = groupId;
       await _storageService.saveTripSettings(settings);
 
-      debugPrint('[VIEWER] Saved watching trip: $tripId');
+      logger.info('[VIEWER] Saved watching trip: $tripId');
     } catch (e) {
-      debugPrint('[VIEWER ERROR] Failed to save watching trip: $e');
+      logger.error('[VIEWER ERROR] Failed to save watching trip: $e');
     }
   }
 
@@ -389,9 +390,9 @@ class TripViewerController extends ChangeNotifier {
         await _storageService.saveTripSettings(settings);
       }
 
-      debugPrint('[VIEWER] Cleared watching trip');
+      logger.info('[VIEWER] Cleared watching trip');
     } catch (e) {
-      debugPrint('[VIEWER ERROR] Failed to clear watching trip: $e');
+      logger.error('[VIEWER ERROR] Failed to clear watching trip: $e');
     }
   }
 
@@ -402,7 +403,7 @@ class TripViewerController extends ChangeNotifier {
     try {
       _mapController!.animateCamera(CameraUpdate.newLatLngZoom(location, zoom));
     } catch (e) {
-      debugPrint('[VIEWER ERROR] Failed to move camera: $e');
+      logger.error('[VIEWER ERROR] Failed to move camera: $e');
     }
   }
 
@@ -416,7 +417,7 @@ class TripViewerController extends ChangeNotifier {
         CameraUpdate.newLatLngBounds(bounds, 50), // 50px padding
       );
     } catch (e) {
-      debugPrint('[VIEWER ERROR] Failed to fit camera: $e');
+      logger.error('[VIEWER ERROR] Failed to fit camera: $e');
     }
   }
 
@@ -447,7 +448,7 @@ class TripViewerController extends ChangeNotifier {
     _polylines.clear();
     statusNotifier.value = null;
     notifyListeners();
-    debugPrint('[VIEWER] Trip data cleared');
+    logger.info('[VIEWER] Trip data cleared');
   }
 
   @override

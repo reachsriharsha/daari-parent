@@ -10,6 +10,7 @@ import 'widgets/search_place_widget.dart';
 import 'widgets/status_widget.dart';
 import 'widgets/trip_control_buttons.dart';
 import 'widgets/trip_status_widget.dart';
+import 'utils/app_logger.dart';
 
 class GroupDetailsPage extends StatefulWidget {
   final String groupName;
@@ -56,7 +57,7 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
 
     // Register controller in global registry for FCM access
     tripViewerControllers[widget.groupId] = _tripViewerController;
-    debugPrint(
+    logger.debug(
       '[GROUP] Registered TripViewerController for group ${widget.groupId}',
     );
 
@@ -128,7 +129,7 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
         _pickedLocation = destination;
         _updateMarkers();
 
-        debugPrint('[MAP] Initialized with destination: $lat, $lng');
+        logger.debug('[MAP] Initialized with destination: $lat, $lng');
       }
     }
   }
@@ -154,7 +155,7 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
         CameraUpdate.newLatLngZoom(_pickedLocation!, 15),
       );
 
-      debugPrint('[MAP] Map created and camera moved to destination');
+      logger.debug('[MAP] Map created and camera moved to destination');
     }
   }
 
@@ -165,7 +166,7 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
 
     // Unregister controller from global registry
     tripViewerControllers.remove(widget.groupId);
-    debugPrint(
+    logger.debug(
       '[GROUP] Unregistered TripViewerController for group ${widget.groupId}',
     );
 
@@ -175,7 +176,7 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
 
   /// Handle place selection from search
   Future<void> _handlePlaceSelected(LatLng location, String placeName) async {
-    debugPrint('[MAP] Place selected: $placeName at $location');
+    logger.debug('[MAP] Place selected: $placeName at $location');
 
     // Set the picked location
     _pickedLocation = location;
@@ -198,7 +199,7 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
     LatLng location,
     String address,
   ) async {
-    debugPrint('[HOME] Home address selected: $address at $location');
+    logger.debug('[HOME] Home address selected: $address at $location');
 
     try {
       // Update user home coordinates using UserService
@@ -210,8 +211,10 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
       if (mounted) {
         _showSnackBar('[HOME] Home address saved: $address');
       }
-    } catch (e) {
-      debugPrint('[HOME ERROR] Failed to save home address: $e');
+    } catch (e, stackTrace) {
+      logger.error(
+        '[HOME ERROR] Failed to save home address: $e Stacktrace: $stackTrace',
+      );
       if (mounted) {
         _showSnackBar('[HOME ERROR] Failed to save home address');
       }
@@ -223,7 +226,7 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
     if (_pickedLocation == null) return;
 
     try {
-      debugPrint('[API] Sending coordinates to backend...');
+      logger.debug('[API] Sending coordinates to backend...');
       final result = await _updateGroupAddressInBackend(
         groupId: widget.groupId,
         latitude: _pickedLocation!.latitude,
@@ -231,13 +234,17 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
       );
 
       if (mounted) {
-        debugPrint('[API] Coordinates sent successfully: ${result['message']}');
+        logger.debug(
+          '[API] Coordinates sent successfully: ${result['message']}',
+        );
         // Refresh UI after successful update
         setState(() {});
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       if (mounted) {
-        debugPrint('[API ERROR] Failed to send coordinates: $e');
+        logger.error(
+          '[API ERROR] Failed to send coordinates: $e Stacktrace: $stackTrace',
+        );
         _showSnackBar('[API WARNING] Failed to save location to server');
       }
     }
@@ -256,7 +263,7 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
       groupId: groupId,
       latitude: latitude,
       longitude: longitude,
-      onLog: (log) => debugPrint('[API] $log'),
+      onLog: (log) => logger.debug('[API] $log'),
     );
   }
 
@@ -274,7 +281,7 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
     return await userService.updateUserHomeCoordinates(
       latitude: latitude,
       longitude: longitude,
-      onLog: (log) => debugPrint('[USER] $log'),
+      onLog: (log) => logger.debug('[USER] $log'),
     );
   }
 
@@ -320,8 +327,10 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
           CameraUpdate.newLatLngZoom(_currentLocation!, 16),
         );
       }
-    } catch (e) {
-      debugPrint('[ERROR] Failed to get current location: $e');
+    } catch (e, stackTrace) {
+      logger.error(
+        '[LOCATION ERROR] Failed to get current location: $e stacktrace: $stackTrace',
+      );
       _showSnackBar('Failed to get current location');
     }
   }

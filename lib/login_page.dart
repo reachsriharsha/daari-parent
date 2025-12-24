@@ -4,6 +4,7 @@ import 'OtpService.dart';
 import 'home_page.dart';
 import 'main.dart'; // To access storageService
 import 'widgets/status_widget.dart';
+import '../utils/app_logger.dart';
 
 // Store verification ID here
 String? verificationId;
@@ -35,19 +36,19 @@ class _LoginPageState extends State<LoginPage> {
       final savedPermission = storageService.getLocationPermission();
 
       if (savedPermission == true) {
-        debugPrint(
+        logger.debug(
           '[PERMISSION] Location permission already granted (from Hive)',
         );
         return;
       }
 
-      debugPrint('[PERMISSION] Checking location permission...');
+      logger.debug('[PERMISSION] Checking location permission...');
 
       // Check current permission status
       LocationPermission permission = await Geolocator.checkPermission();
 
       if (permission == LocationPermission.denied) {
-        debugPrint('[PERMISSION] Requesting location permission...');
+        logger.debug('[PERMISSION] Requesting location permission...');
         permission = await Geolocator.requestPermission();
       }
 
@@ -58,7 +59,7 @@ class _LoginPageState extends State<LoginPage> {
 
       await storageService.saveLocationPermission(granted);
 
-      debugPrint(
+      logger.debug(
         '[PERMISSION] Location permission status: $permission (granted: $granted)',
       );
 
@@ -85,8 +86,10 @@ class _LoginPageState extends State<LoginPage> {
           );
         }
       }
-    } catch (e) {
-      debugPrint('[PERMISSION ERROR] Error requesting location permission: $e');
+    } catch (e, stackTrace) {
+      logger.error(
+        '[PERMISSION ERROR] Error requesting location permission: $e stacktrace: $stackTrace',
+      );
     }
   }
 
