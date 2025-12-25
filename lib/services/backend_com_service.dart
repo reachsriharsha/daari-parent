@@ -168,12 +168,14 @@ class BackendComService {
     }
   }
 
-  /// Send user home coordinates to backend
+  /// Send user home coordinates, address, and place name to backend
   Future<Map<String, dynamic>> sendUserHomeCoordinatesToBackEnd({
     required String idToken,
     required String profId,
     required double latitude,
     required double longitude,
+    String? homeAddress,
+    String? homePlaceName,
     void Function(String log)? onLog,
   }) async {
     final url = Uri.parse("$baseUrl/api/users/update/");
@@ -181,6 +183,8 @@ class BackendComService {
     final body = {
       "prof_id": profId,
       "home_coordinates": {"latitude": latitude, "longitude": longitude},
+      if (homeAddress != null) "home_address": homeAddress,
+      if (homePlaceName != null) "home_place_name": homePlaceName,
     };
 
     final logBuffer = StringBuffer()

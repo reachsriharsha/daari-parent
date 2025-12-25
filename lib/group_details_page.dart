@@ -17,6 +17,8 @@ class GroupDetailsPage extends StatefulWidget {
   final int groupId;
   final double? destinationLatitude;
   final double? destinationLongitude;
+  final String? placeName;
+  final String? address;
 
   const GroupDetailsPage({
     super.key,
@@ -24,6 +26,8 @@ class GroupDetailsPage extends StatefulWidget {
     required this.groupId,
     this.destinationLatitude,
     this.destinationLongitude,
+    this.placeName,
+    this.address,
   });
 
   @override
@@ -197,32 +201,37 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
   /// Handle home address selection from search
   Future<void> _handleHomeAddressSelected(
     LatLng location,
+    String placeName,
     String address,
   ) async {
-    logger.debug('[HOME] Home address selected: $address at $location');
+    logger.debug('[HOME] Home selected: $placeName at $location - $address');
 
     try {
-      // Update user home coordinates using UserService
+      // Update user home data in backend
       await _updateUserHomeCoordinates(
         latitude: location.latitude,
         longitude: location.longitude,
+        homeAddress: address,
+        homePlaceName: placeName,
       );
 
       // Save to local storage for proximity announcements
       await storageService.saveHomeCoordinates(
-        location.latitude,
-        location.longitude,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        address: address,
+        placeName: placeName,
       );
 
       if (mounted) {
-        _showSnackBar('[HOME] Home address saved: $address');
+        _showSnackBar('Home saved: $placeName');
       }
     } catch (e, stackTrace) {
       logger.error(
-        '[HOME ERROR] Failed to save home address: $e Stacktrace: $stackTrace',
+        '[HOME ERROR] Failed to save home: $e\nStacktrace: $stackTrace',
       );
       if (mounted) {
-        _showSnackBar('[HOME ERROR] Failed to save home address');
+        _showSnackBar('[ERROR] Failed to save home address');
       }
     }
   }
@@ -273,10 +282,12 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
     );
   }
 
-  /// Update user home coordinates in backend
+  /// Update user home data in backend
   Future<Map<String, dynamic>> _updateUserHomeCoordinates({
     required double latitude,
     required double longitude,
+    String? homeAddress,
+    String? homePlaceName,
   }) async {
     final backendUrl = storageService.getNgrokUrl() ?? "";
     final userService = UserService(
@@ -287,6 +298,8 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
     return await userService.updateUserHomeCoordinates(
       latitude: latitude,
       longitude: longitude,
+      homeAddress: homeAddress,
+      homePlaceName: homePlaceName,
       onLog: (log) => logger.debug('[USER] $log'),
     );
   }
@@ -374,7 +387,22 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.groupName)),
+      appBar: AppBar(
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.groupName),
+            if (widget.placeName != null)
+              Text(
+                '📍 ${widget.placeName}',
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.normal,
+                ),
+              ),
+          ],
+        ),
+      ),
       body: Column(
         children: [
           _buildSearchSection(),
@@ -417,6 +445,7 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
         hasDestination: _pickedLocation != null,
         onSetAddress: _handleSetAddress,
         onMyLocation: _handleMyLocation,
+        address: widget.address,
       ),
     );
   }

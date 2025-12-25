@@ -8,7 +8,7 @@ import '../utils/app_logger.dart';
 class SearchPlaceWidget extends StatefulWidget {
   final GoogleMapController? mapController;
   final Function(LatLng, String) onPlaceSelected;
-  final Function(LatLng, String)? onHomeAddressSelected;
+  final Function(LatLng, String, String)? onHomeAddressSelected;
   final VoidCallback onSetDestination;
 
   const SearchPlaceWidget({
@@ -279,7 +279,7 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
 
         // Notify parent widget if callback is provided
         if (widget.onHomeAddressSelected != null) {
-          widget.onHomeAddressSelected!(latLng, address);
+          widget.onHomeAddressSelected!(latLng, name, address);
         }
 
         logger.debug('[HOME SEARCH] Home address set to: $address');

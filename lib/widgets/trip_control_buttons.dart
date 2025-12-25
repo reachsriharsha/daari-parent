@@ -4,12 +4,14 @@ class TripControlButtons extends StatelessWidget {
   final bool hasDestination;
   final VoidCallback onSetAddress;
   final VoidCallback onMyLocation;
+  final String? address;
 
   const TripControlButtons({
     super.key,
     required this.hasDestination,
     required this.onSetAddress,
     required this.onMyLocation,
+    this.address,
   });
 
   @override
@@ -49,6 +51,26 @@ class TripControlButtons extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 8),
+        // Display address or message
+        if (address != null && address!.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8.0),
+            child: Text(
+              address!,
+              style: const TextStyle(fontSize: 12, color: Colors.green),
+              textAlign: TextAlign.center,
+            ),
+          )
+        else
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 8.0),
+            child: Text(
+              'Destination address is not set for the group',
+              style: TextStyle(fontSize: 12, color: Colors.red),
+              textAlign: TextAlign.center,
+            ),
+          ),
       ],
     );
   }

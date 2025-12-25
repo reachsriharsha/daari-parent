@@ -503,19 +503,28 @@ class LocationStorageService {
   // Home Coordinates Methods
   // -----------------------------
 
-  /// Save home coordinates to Hive
-  Future<bool> saveHomeCoordinates(double latitude, double longitude) async {
+  /// Save home coordinates, address, and place name to Hive
+  Future<bool> saveHomeCoordinates({
+    required double latitude,
+    required double longitude,
+    String? address,
+    String? placeName,
+  }) async {
     try {
       var settings = getAppSettings() ?? AppSettings();
       settings.homeLatitude = latitude;
       settings.homeLongitude = longitude;
+      settings.homeAddress = address;
+      settings.homePlaceName = placeName;
       final success = await saveAppSettings(settings);
       if (success) {
-        logger.debug('[STORAGE] Home coordinates saved: $latitude, $longitude');
+        logger.debug(
+          '[STORAGE] Home saved: $placeName at ($latitude, $longitude) - $address',
+        );
       }
       return success;
     } catch (e) {
-      logger.error('[STORAGE ERROR] Failed to save home coordinates: $e');
+      logger.error('[STORAGE ERROR] Failed to save home data: $e');
       return false;
     }
   }
@@ -542,6 +551,52 @@ class LocationStorageService {
   bool hasHomeCoordinates() {
     final coords = getHomeCoordinates();
     return coords != null;
+  }
+
+  /// Get home address
+  String? getHomeAddress() {
+    try {
+      final settings = getAppSettings();
+      return settings?.homeAddress;
+    } catch (e) {
+      logger.error('[STORAGE ERROR] Failed to get home address: $e');
+      return null;
+    }
+  }
+
+  /// Get home place name
+  String? getHomePlaceName() {
+    try {
+      final settings = getAppSettings();
+      return settings?.homePlaceName;
+    } catch (e) {
+      logger.error('[STORAGE ERROR] Failed to get home place name: $e');
+      return null;
+    }
+  }
+
+  /// Get complete home data (coordinates + address + place name)
+  Map<String, dynamic>? getHomeData() {
+    try {
+      final settings = getAppSettings();
+      final latitude = settings?.homeLatitude;
+      final longitude = settings?.homeLongitude;
+      final address = settings?.homeAddress;
+      final placeName = settings?.homePlaceName;
+
+      if (latitude != null && longitude != null) {
+        return {
+          'latitude': latitude,
+          'longitude': longitude,
+          'address': address,
+          'place_name': placeName,
+        };
+      }
+      return null;
+    } catch (e) {
+      logger.error('[STORAGE ERROR] Failed to get home data: $e');
+      return null;
+    }
   }
 
   // ==================== GROUP STORAGE ====================

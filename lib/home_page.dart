@@ -264,6 +264,10 @@ class _HomePageState extends State<HomePage> {
                                                             destLat,
                                                         destinationLongitude:
                                                             destLng,
+                                                        placeName:
+                                                            group["place_name"],
+                                                        address:
+                                                            group["address"],
                                                       ),
                                                 ),
                                               );

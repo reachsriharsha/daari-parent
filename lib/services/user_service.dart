@@ -16,10 +16,12 @@ class UserService {
     _backendService = BackendComService(baseUrl: baseUrl);
   }
 
-  /// Update user home coordinates locally and sync to backend
+  /// Update user home coordinates, address, and place name locally and sync to backend
   Future<Map<String, dynamic>> updateUserHomeCoordinates({
     required double latitude,
     required double longitude,
+    String? homeAddress,
+    String? homePlaceName,
     void Function(String log)? onLog,
   }) async {
     try {
@@ -36,19 +38,21 @@ class UserService {
       }
 
       onLog?.call(
-        '[USER] Updating home coordinates: lat=$latitude, lng=$longitude',
+        '[USER] Updating home: $homePlaceName at ($latitude, $longitude) - $homeAddress',
       );
 
-      // Send coordinates to backend
+      // Send data to backend
       final result = await _backendService.sendUserHomeCoordinatesToBackEnd(
         idToken: idToken,
         profId: profId,
         latitude: latitude,
         longitude: longitude,
+        homeAddress: homeAddress,
+        homePlaceName: homePlaceName,
         onLog: onLog,
       );
 
-      onLog?.call('[USER] Home coordinates updated successfully');
+      onLog?.call('[USER] Home data updated successfully');
 
       return result;
     } catch (e) {
