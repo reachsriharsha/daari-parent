@@ -102,7 +102,32 @@ class OtpService {
         logger.debug('[AUTH] No group_list in backend response, skipping sync');
       }
 
-      // 6) Continue to home
+      // 6) Sync home details from backend
+      final homeDetails = backendResponse["home_details"];
+      if (homeDetails != null) {
+        logger.debug('[AUTH] Syncing home details from backend...');
+        try {
+          final homeCoords = homeDetails["home_coordinates"];
+          if (homeCoords != null) {
+            await storageService.saveHomeCoordinates(
+              latitude: homeCoords["latitude"],
+              longitude: homeCoords["longitude"],
+              address: homeDetails["home_address"],
+              placeName: homeDetails["home_place_name"],
+            );
+            logger.debug(
+              '[AUTH] Home details synced: ${homeDetails["home_place_name"]} at '
+              '(${homeCoords["latitude"]}, ${homeCoords["longitude"]})',
+            );
+          }
+        } catch (e) {
+          logger.error('[AUTH ERROR] Failed to sync home details: $e');
+        }
+      } else {
+        logger.debug('[AUTH] No home_details in backend response');
+      }
+
+      // 7) Continue to home
       onBackendValidated();
       return userCredential;
     } catch (e) {

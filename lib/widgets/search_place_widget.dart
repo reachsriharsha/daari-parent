@@ -10,6 +10,7 @@ class SearchPlaceWidget extends StatefulWidget {
   final Function(LatLng, String) onPlaceSelected;
   final Function(LatLng, String, String)? onHomeAddressSelected;
   final VoidCallback onSetDestination;
+  final dynamic storageService;
 
   const SearchPlaceWidget({
     super.key,
@@ -17,6 +18,7 @@ class SearchPlaceWidget extends StatefulWidget {
     required this.onPlaceSelected,
     this.onHomeAddressSelected,
     required this.onSetDestination,
+    required this.storageService,
   });
 
   @override
@@ -43,6 +45,13 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
   String? _errorHomeSearch;
   Timer? _homeDebounceTimer;
   String _homeSearchQuery = '';
+  bool _hasExistingHome = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedHomeAddress();
+  }
 
   @override
   void dispose() {
@@ -51,6 +60,22 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
     _debounceTimer?.cancel();
     _homeDebounceTimer?.cancel();
     super.dispose();
+  }
+
+  /// Load saved home address from storage
+  Future<void> _loadSavedHomeAddress() async {
+    try {
+      final homeData = widget.storageService.getHomeData();
+      if (homeData != null && homeData['place_name'] != null) {
+        setState(() {
+          _homeSearchController.text = homeData['place_name'];
+          _hasExistingHome = true;
+        });
+        logger.debug('[HOME] Loaded saved home: ${homeData['place_name']}');
+      }
+    } catch (e) {
+      logger.error('[HOME ERROR] Failed to load saved home address: $e');
+    }
   }
 
   Future<void> _searchPlaces(String input) async {
@@ -427,15 +452,25 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
             Expanded(
               child: TextField(
                 controller: _homeSearchController,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Search home address for the trip...',
-                  contentPadding: EdgeInsets.symmetric(horizontal: 8),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                  prefixIcon: _hasExistingHome
+                      ? const Icon(Icons.home, color: Colors.green, size: 20)
+                      : null,
                 ),
                 onChanged: (String value) {
                   logger.debug(
                     '[HOME SEARCH] Text changed: "$value" (length: ${value.length})',
                   );
                   _homeDebounceTimer?.cancel();
+
+                  // Clear existing home flag if user is typing
+                  if (_hasExistingHome && value.isEmpty) {
+                    setState(() {
+                      _hasExistingHome = false;
+                    });
+                  }
 
                   // Clear predictions if less than 3 characters
                   if (value.length < 3) {

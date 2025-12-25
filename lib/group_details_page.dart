@@ -390,14 +390,36 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
       appBar: AppBar(
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Text(widget.groupName),
-            if (widget.placeName != null)
+            if (widget.placeName != null) ...[
               Text(
                 '📍 ${widget.placeName}',
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.normal,
+                ),
+              ),
+              if (widget.address != null)
+                Text(
+                  widget.address!,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w300,
+                    color: Colors.green,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
+            ] else
+              Text(
+                'Set the destination address for the group',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w300,
+                  fontStyle: FontStyle.italic,
+                  color: Colors.grey[400],
                 ),
               ),
           ],
@@ -433,6 +455,7 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
         onPlaceSelected: _handlePlaceSelected,
         onHomeAddressSelected: _handleHomeAddressSelected,
         onSetDestination: _handleSetAddress,
+        storageService: storageService,
       ),
     );
   }
@@ -445,7 +468,6 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
         hasDestination: _pickedLocation != null,
         onSetAddress: _handleSetAddress,
         onMyLocation: _handleMyLocation,
-        address: widget.address,
       ),
     );
   }
