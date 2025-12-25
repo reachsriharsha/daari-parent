@@ -16,11 +16,19 @@ class Group extends HiveObject {
   @HiveField(3)
   double destinationLongitude;
 
+  @HiveField(4)
+  String? address;
+
+  @HiveField(5)
+  String? placeName;
+
   Group({
     required this.groupId,
     required this.groupName,
     required this.destinationLatitude,
     required this.destinationLongitude,
+    this.address,
+    this.placeName,
   });
 
   // Convenience getter for coordinates map
@@ -34,8 +42,10 @@ class Group extends HiveObject {
     return Group(
       groupId: json['id'] ?? 0,
       groupName: json['name'] ?? '',
-      destinationLatitude: json['coordinates']?['latitude'] ?? 0.0,
-      destinationLongitude: json['coordinates']?['longitude'] ?? 0.0,
+      destinationLatitude: json['dest_coordinates']?['latitude'] ?? 0.0,
+      destinationLongitude: json['dest_coordinates']?['longitude'] ?? 0.0,
+      address: json['address'],
+      placeName: json['place_name'],
     );
   }
 
@@ -43,9 +53,11 @@ class Group extends HiveObject {
   Map<String, dynamic> toJson() => {
     'id': groupId,
     'name': groupName,
-    'coordinates': {
+    'dest_coordinates': {
       'latitude': destinationLatitude,
       'longitude': destinationLongitude,
     },
+    if (address != null) 'address': address,
+    if (placeName != null) 'place_name': placeName,
   };
 }

@@ -208,6 +208,12 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
         longitude: location.longitude,
       );
 
+      // Save to local storage for proximity announcements
+      await storageService.saveHomeCoordinates(
+        location.latitude,
+        location.longitude,
+      );
+
       if (mounted) {
         _showSnackBar('[HOME] Home address saved: $address');
       }

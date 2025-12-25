@@ -3,13 +3,16 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
+import '../constants.dart';
 import '../models/location_point.dart';
 import '../models/trip_settings.dart';
 import '../models/trip_status_data.dart';
 import '../models/trip_update_data.dart';
 import '../models/trip_viewing_state.dart';
+import '../services/announcement_service.dart';
 import '../services/location_storage_service.dart';
 import '../utils/app_logger.dart';
+import '../utils/distance_calculator.dart';
 
 /// Controller for viewing remote trips (parent app functionality)
 /// Manages state, map visualization, and persistence for FCM-received trip updates
@@ -29,6 +32,12 @@ class TripViewerController extends ChangeNotifier {
 
   // Map controller for camera control
   GoogleMapController? _mapController;
+
+  // Proximity announcement state
+  bool _announced1km = false;
+  bool _announced500m = false;
+  bool _announced200m = false;
+  bool _announced100m = false;
 
   TripViewerController({
     required LocationStorageService storageService,
@@ -51,6 +60,12 @@ class TripViewerController extends ChangeNotifier {
   Future<void> handleTripStart(TripUpdateData data) async {
     try {
       logger.info('[VIEWER] Handling trip start: ${data.tripId}');
+
+      // Reset proximity announcement flags for new trip
+      _announced1km = false;
+      _announced500m = false;
+      _announced200m = false;
+      _announced100m = false;
 
       final startLocation = LatLng(data.latitude, data.longitude);
 
@@ -124,6 +139,9 @@ class TripViewerController extends ChangeNotifier {
 
       // Follow current location
       _moveCameraToLocation(newLocation);
+
+      // Check proximity to home after processing location update
+      await _checkProximityToHome(data.latitude, data.longitude);
 
       notifyListeners();
 
@@ -449,6 +467,63 @@ class TripViewerController extends ChangeNotifier {
     statusNotifier.value = null;
     notifyListeners();
     logger.info('[VIEWER] Trip data cleared');
+  }
+
+  /// Check proximity to home and announce when crossing thresholds
+  Future<void> _checkProximityToHome(
+    double currentLat,
+    double currentLon,
+  ) async {
+    try {
+      // 1. Get home coordinates from Hive
+      final homeCoords = _storageService.getHomeCoordinates();
+      if (homeCoords == null) {
+        // No home address set - skip proximity check
+        logger.debug('[PROXIMITY] No home coordinates set - skipping check');
+        return;
+      }
+
+      // 2. Calculate distance using Haversine formula
+      final distance = calculateDistance(
+        lat1: currentLat,
+        lon1: currentLon,
+        lat2: homeCoords['latitude']!,
+        lon2: homeCoords['longitude']!,
+      );
+
+      logger.debug(
+        '[PROXIMITY] Distance to home: ${distance.toStringAsFixed(0)}m',
+      );
+
+      // 3. Check thresholds (descending order - larger first)
+      // This ensures all applicable announcements trigger if driver goes from >1km to <100m in one update
+
+      if (distance <= PROXIMITY_THRESHOLD_1KM && !_announced1km) {
+        await announcementService.announce('1 kilometer from home');
+        _announced1km = true;
+        logger.info('[PROXIMITY] ✅ Announced 1km threshold');
+      }
+
+      if (distance <= PROXIMITY_THRESHOLD_500M && !_announced500m) {
+        await announcementService.announce('500 meters from home');
+        _announced500m = true;
+        logger.info('[PROXIMITY] ✅ Announced 500m threshold');
+      }
+
+      if (distance <= PROXIMITY_THRESHOLD_200M && !_announced200m) {
+        await announcementService.announce('200 meters from home');
+        _announced200m = true;
+        logger.info('[PROXIMITY] ✅ Announced 200m threshold');
+      }
+
+      if (distance <= PROXIMITY_THRESHOLD_100M && !_announced100m) {
+        await announcementService.announce('100 meters from home');
+        _announced100m = true;
+        logger.info('[PROXIMITY] ✅ Announced 100m threshold');
+      }
+    } catch (e) {
+      logger.error('[PROXIMITY ERROR] Failed to check proximity: $e');
+    }
   }
 
   @override

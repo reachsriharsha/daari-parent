@@ -188,6 +188,40 @@ class _HomePageState extends State<HomePage> {
                                                         ),
                                                       ),
                                                       const SizedBox(height: 4),
+                                                      if (group["place_name"] !=
+                                                          null)
+                                                        Padding(
+                                                          padding:
+                                                              const EdgeInsets.only(
+                                                                bottom: 4,
+                                                              ),
+                                                          child: Text(
+                                                            '📍 ${group["place_name"]}',
+                                                            style:
+                                                                const TextStyle(
+                                                                  fontSize: 14,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                ),
+                                                          ),
+                                                        ),
+                                                      if (group["address"] !=
+                                                          null)
+                                                        Padding(
+                                                          padding:
+                                                              const EdgeInsets.only(
+                                                                bottom: 4,
+                                                              ),
+                                                          child: Text(
+                                                            group["address"],
+                                                            style: TextStyle(
+                                                              fontSize: 13,
+                                                              color: Colors
+                                                                  .grey[700],
+                                                            ),
+                                                          ),
+                                                        ),
                                                       Text(
                                                         'Lat: ${group["dest_coordinates"]["latitude"]?.toStringAsFixed(6) ?? "N/A"}',
                                                         style: const TextStyle(

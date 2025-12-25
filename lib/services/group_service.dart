@@ -77,6 +77,8 @@ class GroupService {
       groupName: name,
       destinationLatitude: 12.91,
       destinationLongitude: 77.64,
+      address: null, // Initially null for new groups
+      placeName: null,
     );
 
     await storageService.saveGroup(group);
@@ -99,8 +101,10 @@ class GroupService {
   Future<void> _updateGroupInHive(
     int groupId,
     double latitude,
-    double longitude,
-  ) async {
+    double longitude, {
+    String? address,
+    String? placeName,
+  }) async {
     try {
       // Get existing group from Hive
       final existingGroup = await storageService.getGroup(groupId);
@@ -110,12 +114,16 @@ class GroupService {
         existingGroup.destinationLatitude = latitude;
         existingGroup.destinationLongitude = longitude;
 
+        // Update address and placeName if provided
+        if (address != null) existingGroup.address = address;
+        if (placeName != null) existingGroup.placeName = placeName;
+
         // Save back to Hive (same key = groupId)
         await storageService.saveGroup(existingGroup);
 
         logger.info(
           '[HIVE] Updated group in Hive: ${existingGroup.groupName} '
-          '(Lat: $latitude, Lng: $longitude)',
+          '(Lat: $latitude, Lng: $longitude, Address: $address, Place: $placeName)',
         );
       } else {
         logger.warning(

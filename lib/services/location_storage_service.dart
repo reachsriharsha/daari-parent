@@ -499,6 +499,51 @@ class LocationStorageService {
     }
   }
 
+  // -----------------------------
+  // Home Coordinates Methods
+  // -----------------------------
+
+  /// Save home coordinates to Hive
+  Future<bool> saveHomeCoordinates(double latitude, double longitude) async {
+    try {
+      var settings = getAppSettings() ?? AppSettings();
+      settings.homeLatitude = latitude;
+      settings.homeLongitude = longitude;
+      final success = await saveAppSettings(settings);
+      if (success) {
+        logger.debug('[STORAGE] Home coordinates saved: $latitude, $longitude');
+      }
+      return success;
+    } catch (e) {
+      logger.error('[STORAGE ERROR] Failed to save home coordinates: $e');
+      return false;
+    }
+  }
+
+  /// Retrieve home coordinates from Hive
+  /// Returns null if not set
+  Map<String, double>? getHomeCoordinates() {
+    try {
+      final settings = getAppSettings();
+      final latitude = settings?.homeLatitude;
+      final longitude = settings?.homeLongitude;
+
+      if (latitude != null && longitude != null) {
+        return {'latitude': latitude, 'longitude': longitude};
+      }
+      return null;
+    } catch (e) {
+      logger.error('[STORAGE ERROR] Failed to get home coordinates: $e');
+      return null;
+    }
+  }
+
+  /// Check if home coordinates exist
+  bool hasHomeCoordinates() {
+    final coords = getHomeCoordinates();
+    return coords != null;
+  }
+
   // ==================== GROUP STORAGE ====================
 
   /// Save a group to Hive
@@ -619,12 +664,22 @@ class LocationStorageService {
             // Check if name has changed
             final nameChanged = hiveGroup.groupName != backendGroup.groupName;
 
-            if (coordsChanged || nameChanged) {
+            // Check if address or placeName have changed
+            final addressChanged = hiveGroup.address != backendGroup.address;
+            final placeNameChanged =
+                hiveGroup.placeName != backendGroup.placeName;
+
+            if (coordsChanged ||
+                nameChanged ||
+                addressChanged ||
+                placeNameChanged) {
               // Update with backend data
               hiveGroup.groupName = backendGroup.groupName;
               hiveGroup.destinationLatitude = backendGroup.destinationLatitude;
               hiveGroup.destinationLongitude =
                   backendGroup.destinationLongitude;
+              hiveGroup.address = backendGroup.address;
+              hiveGroup.placeName = backendGroup.placeName;
               await saveGroup(hiveGroup);
               updated++;
               logger.info(

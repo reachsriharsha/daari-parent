@@ -1,6 +1,6 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:developer' as developer;
+import '../utils/app_logger.dart';
 
 /// Service class to handle all backend API communications
 class BackendComService {
@@ -23,10 +23,8 @@ class BackendComService {
       body['platform'] = 'android'; // TODO: Detect platform dynamically
     }
 
-    developer.log(
-      'Logging in to backend with body: ${jsonEncode(body)}',
-      name: 'BackendComService',
-      level: 100, // Info level
+    logger.debug(
+      '[BackendComService] Logging in to backend with body: ${jsonEncode(body)}',
     );
     final response = await http.post(
       url,
@@ -39,11 +37,7 @@ class BackendComService {
     } else {
       final errorMessage =
           'Backend error: ${response.statusCode} ${response.body}';
-      developer.log(
-        errorMessage,
-        name: 'BackendComService',
-        level: 1000, // Error level
-      );
+      logger.error('[BackendComService] $errorMessage');
       throw Exception(errorMessage);
     }
   }
@@ -60,9 +54,8 @@ class BackendComService {
       'platform': 'android', // TODO: Detect platform dynamically
     };
 
-    developer.log(
-      'Refreshing FCM token: ${fcmToken.substring(0, 20)}...',
-      name: 'BackendComService',
+    logger.debug(
+      '[BackendComService] Refreshing FCM token: ${fcmToken.substring(0, 20)}...',
     );
 
     final response = await http.post(
@@ -75,19 +68,12 @@ class BackendComService {
     );
 
     if (response.statusCode == 200 || response.statusCode == 201) {
-      developer.log(
-        'FCM token refreshed successfully',
-        name: 'BackendComService',
-      );
+      logger.debug('[BackendComService] FCM token refreshed successfully');
       return jsonDecode(response.body);
     } else {
       final errorMessage =
           'Failed to refresh FCM token: ${response.statusCode} ${response.body}';
-      developer.log(
-        errorMessage,
-        name: 'BackendComService',
-        level: 1000, // Error level
-      );
+      logger.error('[BackendComService] $errorMessage');
       throw Exception(errorMessage);
     }
   }
@@ -131,11 +117,7 @@ class BackendComService {
     } else {
       final errorMessage =
           "Failed to update group coordinates: ${response.statusCode} ${response.body}";
-      developer.log(
-        errorMessage,
-        name: 'BackendComService',
-        level: 1000, // Error level
-      );
+      logger.error('[BackendComService] $errorMessage');
       throw Exception(errorMessage);
     }
   }
@@ -181,11 +163,7 @@ class BackendComService {
     } else {
       final errorMessage =
           "Failed to create group: ${response.statusCode} ${response.body}";
-      developer.log(
-        errorMessage,
-        name: 'BackendComService',
-        level: 1000, // Error level
-      );
+      logger.error('[BackendComService] $errorMessage');
       throw Exception(errorMessage);
     }
   }
@@ -229,11 +207,7 @@ class BackendComService {
     } else {
       final errorMessage =
           "Failed to update user home coordinates: ${response.statusCode} ${response.body}";
-      developer.log(
-        errorMessage,
-        name: 'BackendComService',
-        level: 1000, // Error level
-      );
+      logger.error('[BackendComService] $errorMessage');
       throw Exception(errorMessage);
     }
   }
