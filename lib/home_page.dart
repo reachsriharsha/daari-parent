@@ -222,18 +222,6 @@ class _HomePageState extends State<HomePage> {
                                                             ),
                                                           ),
                                                         ),
-                                                      Text(
-                                                        'Lat: ${group["dest_coordinates"]["latitude"]?.toStringAsFixed(6) ?? "N/A"}',
-                                                        style: const TextStyle(
-                                                          fontSize: 13,
-                                                        ),
-                                                      ),
-                                                      Text(
-                                                        'Long: ${group["dest_coordinates"]["longitude"]?.toStringAsFixed(6) ?? "N/A"}',
-                                                        style: const TextStyle(
-                                                          fontSize: 13,
-                                                        ),
-                                                      ),
                                                     ],
                                                   ),
                                               ],
@@ -252,6 +240,15 @@ class _HomePageState extends State<HomePage> {
                                                     group["dest_coordinates"]["longitude"];
                                               }
 
+                                              // Extract member phone numbers
+                                              List<String> members = [];
+                                              if (group["member_phone_numbers"] !=
+                                                  null) {
+                                                members = List<String>.from(
+                                                  group["member_phone_numbers"],
+                                                );
+                                              }
+
                                               Navigator.push(
                                                 context,
                                                 MaterialPageRoute(
@@ -268,6 +265,11 @@ class _HomePageState extends State<HomePage> {
                                                             group["place_name"],
                                                         address:
                                                             group["address"],
+                                                        isAdmin:
+                                                            group["is_admin"] ??
+                                                            false,
+                                                        memberPhoneNumbers:
+                                                            members,
                                                       ),
                                                 ),
                                               );

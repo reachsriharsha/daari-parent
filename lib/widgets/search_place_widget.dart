@@ -11,6 +11,8 @@ class SearchPlaceWidget extends StatefulWidget {
   final Function(LatLng, String, String)? onHomeAddressSelected;
   final VoidCallback onSetDestination;
   final dynamic storageService;
+  final bool showDestinationSearch;
+  final bool showHomeSearch;
 
   const SearchPlaceWidget({
     super.key,
@@ -19,6 +21,8 @@ class SearchPlaceWidget extends StatefulWidget {
     this.onHomeAddressSelected,
     required this.onSetDestination,
     required this.storageService,
+    this.showDestinationSearch = true,
+    this.showHomeSearch = true,
   });
 
   @override
@@ -327,65 +331,71 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
     return Column(
       children: [
         // Destination search row with button
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _searchController,
-                decoration: const InputDecoration(
-                  hintText: 'Search destination for the trip...',
-                  contentPadding: EdgeInsets.symmetric(horizontal: 8),
-                ),
-                onChanged: (String value) {
-                  logger.debug(
-                    '[SEARCH] Text changed: "$value" (length: ${value.length})',
-                  );
-                  _debounceTimer?.cancel();
+        if (widget.showDestinationSearch)
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  decoration: const InputDecoration(
+                    hintText: 'Search destination for the trip...',
+                    contentPadding: EdgeInsets.symmetric(horizontal: 8),
+                  ),
+                  onChanged: (String value) {
+                    logger.debug(
+                      '[SEARCH] Text changed: "$value" (length: ${value.length})',
+                    );
+                    _debounceTimer?.cancel();
 
-                  // Clear predictions if less than 3 characters
-                  if (value.length < 3) {
-                    setState(() {
-                      _predictions = [];
-                      _errorSearchPlace = null;
-                      _isSearchPlaceLoading = false;
-                      _placeSearchQuery = '';
-                    });
-                    logger.debug('[SEARCH] Cleared: query too short');
-                    return;
-                  }
+                    // Clear predictions if less than 3 characters
+                    if (value.length < 3) {
+                      setState(() {
+                        _predictions = [];
+                        _errorSearchPlace = null;
+                        _isSearchPlaceLoading = false;
+                        _placeSearchQuery = '';
+                      });
+                      logger.debug('[SEARCH] Cleared: query too short');
+                      return;
+                    }
 
-                  // Create new timer only if 3+ characters
-                  logger.debug('[SEARCH] Starting debounce timer...');
-                  _debounceTimer = Timer(const Duration(milliseconds: 500), () {
-                    logger.debug('[SEARCH] Debounce timer fired!');
-                    setState(() {
-                      _placeSearchQuery = value;
-                    });
-                    logger.debug('[SEARCH] Set query: "$_placeSearchQuery"');
-                    _searchPlaces(value);
-                  });
-                },
-              ),
-            ),
-            const SizedBox(width: 8),
-            ElevatedButton(
-              onPressed: widget.onSetDestination,
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
+                    // Create new timer only if 3+ characters
+                    logger.debug('[SEARCH] Starting debounce timer...');
+                    _debounceTimer = Timer(
+                      const Duration(milliseconds: 500),
+                      () {
+                        logger.debug('[SEARCH] Debounce timer fired!');
+                        setState(() {
+                          _placeSearchQuery = value;
+                        });
+                        logger.debug(
+                          '[SEARCH] Set query: "$_placeSearchQuery"',
+                        );
+                        _searchPlaces(value);
+                      },
+                    );
+                  },
                 ),
-                minimumSize: const Size(80, 36),
               ),
-              child: const Text(
-                'Set Destination',
-                style: TextStyle(fontSize: 12),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: widget.onSetDestination,
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  minimumSize: const Size(80, 36),
+                ),
+                child: const Text(
+                  'Set Destination',
+                  style: TextStyle(fontSize: 12),
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
         // Destination suggestions list
-        if (_placeSearchQuery.isNotEmpty)
+        if (widget.showDestinationSearch && _placeSearchQuery.isNotEmpty)
           Container(
             height: 200,
             margin: const EdgeInsets.only(top: 8),
@@ -445,95 +455,97 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
               },
             ),
           ),
-        const SizedBox(height: 16),
+        if (widget.showDestinationSearch && widget.showHomeSearch)
+          const SizedBox(height: 8),
         // Home address search row with button
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _homeSearchController,
-                decoration: InputDecoration(
-                  hintText: 'Search home address for the trip...',
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                  prefixIcon: _hasExistingHome
-                      ? const Icon(Icons.home, color: Colors.green, size: 20)
-                      : null,
-                ),
-                onChanged: (String value) {
-                  logger.debug(
-                    '[HOME SEARCH] Text changed: "$value" (length: ${value.length})',
-                  );
-                  _homeDebounceTimer?.cancel();
-
-                  // Clear existing home flag if user is typing
-                  if (_hasExistingHome && value.isEmpty) {
-                    setState(() {
-                      _hasExistingHome = false;
-                    });
-                  }
-
-                  // Clear predictions if less than 3 characters
-                  if (value.length < 3) {
-                    setState(() {
-                      _homePredictions = [];
-                      _errorHomeSearch = null;
-                      _isHomeSearchLoading = false;
-                      _homeSearchQuery = '';
-                    });
-                    logger.debug('[HOME SEARCH] Cleared: query too short');
-                    return;
-                  }
-
-                  // Create new timer only if 3+ characters
-                  logger.debug('[HOME SEARCH] Starting debounce timer...');
-                  _homeDebounceTimer = Timer(
-                    const Duration(milliseconds: 500),
-                    () {
-                      logger.debug('[HOME SEARCH] Debounce timer fired!');
-                      setState(() {
-                        _homeSearchQuery = value;
-                      });
-                      logger.debug(
-                        '[HOME SEARCH] Set query: "$_homeSearchQuery"',
-                      );
-                      _searchHomeAddress(value);
-                    },
-                  );
-                },
-              ),
-            ),
-            const SizedBox(width: 8),
-            ElevatedButton(
-              onPressed: () {
-                if (_homeSearchController.text.isNotEmpty &&
-                    _homePredictions.isNotEmpty) {
-                  // If there's a search result, select the first one
-                  _setHomeAddressFromPlaceId(_homePredictions.first.placeId);
-                } else {
-                  // Show message if no home address selected
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Please search and select a home address first',
-                        ),
-                        duration: Duration(seconds: 2),
-                      ),
+        if (widget.showHomeSearch)
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _homeSearchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search home address for the trip...',
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                    prefixIcon: _hasExistingHome
+                        ? const Icon(Icons.home, color: Colors.green, size: 20)
+                        : null,
+                  ),
+                  onChanged: (String value) {
+                    logger.debug(
+                      '[HOME SEARCH] Text changed: "$value" (length: ${value.length})',
                     );
-                  }
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
+                    _homeDebounceTimer?.cancel();
+
+                    // Clear existing home flag if user is typing
+                    if (_hasExistingHome && value.isEmpty) {
+                      setState(() {
+                        _hasExistingHome = false;
+                      });
+                    }
+
+                    // Clear predictions if less than 3 characters
+                    if (value.length < 3) {
+                      setState(() {
+                        _homePredictions = [];
+                        _errorHomeSearch = null;
+                        _isHomeSearchLoading = false;
+                        _homeSearchQuery = '';
+                      });
+                      logger.debug('[HOME SEARCH] Cleared: query too short');
+                      return;
+                    }
+
+                    // Create new timer only if 3+ characters
+                    logger.debug('[HOME SEARCH] Starting debounce timer...');
+                    _homeDebounceTimer = Timer(
+                      const Duration(milliseconds: 500),
+                      () {
+                        logger.debug('[HOME SEARCH] Debounce timer fired!');
+                        setState(() {
+                          _homeSearchQuery = value;
+                        });
+                        logger.debug(
+                          '[HOME SEARCH] Set query: "$_homeSearchQuery"',
+                        );
+                        _searchHomeAddress(value);
+                      },
+                    );
+                  },
                 ),
-                minimumSize: const Size(80, 36),
               ),
-              child: const Text('Set Home', style: TextStyle(fontSize: 12)),
-            ),
-          ],
-        ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: () {
+                  if (_homeSearchController.text.isNotEmpty &&
+                      _homePredictions.isNotEmpty) {
+                    // If there's a search result, select the first one
+                    _setHomeAddressFromPlaceId(_homePredictions.first.placeId);
+                  } else {
+                    // Show message if no home address selected
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Please search and select a home address first',
+                          ),
+                          duration: Duration(seconds: 2),
+                        ),
+                      );
+                    }
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                  minimumSize: const Size(80, 36),
+                ),
+                child: const Text('Set Home', style: TextStyle(fontSize: 12)),
+              ),
+            ],
+          ),
         // Home address suggestions list
         if (_homeSearchQuery.isNotEmpty)
           Container(

@@ -22,6 +22,12 @@ class Group extends HiveObject {
   @HiveField(5)
   String? placeName;
 
+  @HiveField(6)
+  bool isAdmin;
+
+  @HiveField(7)
+  List<String>? memberPhoneNumbers;
+
   Group({
     required this.groupId,
     required this.groupName,
@@ -29,6 +35,8 @@ class Group extends HiveObject {
     required this.destinationLongitude,
     this.address,
     this.placeName,
+    this.isAdmin = false,
+    this.memberPhoneNumbers,
   });
 
   // Convenience getter for coordinates map
@@ -36,6 +44,11 @@ class Group extends HiveObject {
     'latitude': destinationLatitude,
     'longitude': destinationLongitude,
   };
+
+  // Helper to check if destination is set
+  bool get hasDestination =>
+      (destinationLatitude != 0.0 || destinationLongitude != 0.0) &&
+      placeName != null;
 
   // Factory constructor to create from JSON (backend response)
   factory Group.fromJson(Map<String, dynamic> json) {
@@ -46,6 +59,10 @@ class Group extends HiveObject {
       destinationLongitude: json['dest_coordinates']?['longitude'] ?? 0.0,
       address: json['address'],
       placeName: json['place_name'],
+      isAdmin: json['is_admin'] ?? false,
+      memberPhoneNumbers: json['member_phone_numbers'] != null
+          ? List<String>.from(json['member_phone_numbers'])
+          : null,
     );
   }
 
@@ -59,5 +76,7 @@ class Group extends HiveObject {
     },
     if (address != null) 'address': address,
     if (placeName != null) 'place_name': placeName,
+    'is_admin': isAdmin,
+    if (memberPhoneNumbers != null) 'member_phone_numbers': memberPhoneNumbers,
   };
 }

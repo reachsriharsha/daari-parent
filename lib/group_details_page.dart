@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 
 import 'controllers/trip_viewer_controller.dart';
 import 'main.dart'; // For storageService and tripViewerControllers
+import 'screens/group_members_screen.dart';
 import 'services/group_service.dart';
 import 'services/user_service.dart';
 import 'widgets/search_place_widget.dart';
@@ -19,6 +20,8 @@ class GroupDetailsPage extends StatefulWidget {
   final double? destinationLongitude;
   final String? placeName;
   final String? address;
+  final bool isAdmin;
+  final List<String> memberPhoneNumbers;
 
   const GroupDetailsPage({
     super.key,
@@ -28,6 +31,8 @@ class GroupDetailsPage extends StatefulWidget {
     this.destinationLongitude,
     this.placeName,
     this.address,
+    this.isAdmin = false,
+    this.memberPhoneNumbers = const [],
   });
 
   @override
@@ -47,6 +52,19 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
 
   // Trip viewer controller for remote trip viewing
   late TripViewerController _tripViewerController;
+
+  // Admin editing state
+  bool _isEditingDestination = false;
+  bool _isEditingHome = false;
+
+  // Home address state
+  String? _homePlaceName;
+  String? _homeAddress;
+
+  // Helper getters
+  bool get _isAdmin => widget.isAdmin;
+  bool get _hasDestination => widget.placeName != null;
+  bool get _hasHomeAddress => _homePlaceName != null;
 
   @override
   void initState() {
@@ -72,6 +90,21 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
     _tripViewerController.addListener(_onTripViewerUpdate);
 
     _initializeDestination();
+    _loadHomeAddress();
+  }
+
+  /// Load home address from storage
+  Future<void> _loadHomeAddress() async {
+    final homeData = storageService.getHomeData();
+    if (homeData != null) {
+      setState(() {
+        _homePlaceName = homeData['place_name'];
+        _homeAddress = homeData['address'];
+      });
+      logger.debug(
+        '[HOME] Loaded saved home: $_homePlaceName at $_homeAddress',
+      );
+    }
   }
 
   /// Handle trip viewer updates
@@ -196,6 +229,13 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
 
     // Automatically send coordinates to backend
     await _sendCoordinatesToBackend();
+
+    // After successful save, exit editing mode
+    if (mounted) {
+      setState(() {
+        _isEditingDestination = false;
+      });
+    }
   }
 
   /// Handle home address selection from search
@@ -223,7 +263,13 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
         placeName: placeName,
       );
 
+      // Update local state and exit edit mode
       if (mounted) {
+        setState(() {
+          _homePlaceName = placeName;
+          _homeAddress = address;
+          _isEditingHome = false;
+        });
         _showSnackBar('Home saved: $placeName');
       }
     } catch (e, stackTrace) {
@@ -388,45 +434,12 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(widget.groupName),
-            if (widget.placeName != null) ...[
-              Text(
-                '📍 ${widget.placeName}',
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.normal,
-                ),
-              ),
-              if (widget.address != null)
-                Text(
-                  widget.address!,
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w300,
-                    color: Colors.green,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                ),
-            ] else
-              Text(
-                'Set the destination address for the group',
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w300,
-                  fontStyle: FontStyle.italic,
-                  color: Colors.grey[400],
-                ),
-              ),
-          ],
-        ),
+        title: _buildAppBarTitle(),
+        actions: _buildAppBarActions(),
       ),
       body: Column(
         children: [
+          _buildHomeAddressRow(),
           _buildSearchSection(),
           _buildControlButtons(),
           _buildMapView(),
@@ -446,8 +459,180 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
     );
   }
 
+  /// Build AppBar title with destination and home info
+  Widget _buildAppBarTitle() {
+    return GestureDetector(
+      onTap: () {
+        // Navigate to group members screen
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => GroupMembersScreen(
+              groupName: widget.groupName,
+              memberPhoneNumbers: widget.memberPhoneNumbers,
+              isAdmin: _isAdmin,
+            ),
+          ),
+        );
+      },
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Group name with members icon
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(widget.groupName),
+                const SizedBox(width: 4),
+                const Icon(Icons.people, size: 16, color: Colors.white70),
+              ],
+            ),
+            // Destination display
+            if (widget.placeName != null) ...[
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '📍 ${widget.placeName}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.normal,
+                    ),
+                  ),
+                  if (_isAdmin) ...[
+                    const SizedBox(width: 6),
+                    GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          _isEditingDestination = !_isEditingDestination;
+                        });
+                      },
+                      child: Icon(
+                        _isEditingDestination ? Icons.close : Icons.edit,
+                        size: 16,
+                        color: Colors.greenAccent,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              if (widget.address != null)
+                Padding(
+                  padding: const EdgeInsets.only(left: 20),
+                  child: Text(
+                    widget.address!,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w300,
+                      color: Colors.green,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
+            ] else if (_isAdmin)
+              Text(
+                'Tap search to set destination',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w300,
+                  fontStyle: FontStyle.italic,
+                  color: Colors.grey[400],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Build AppBar actions
+  List<Widget> _buildAppBarActions() {
+    // Edit icons are now inline with addresses in the title
+    return [];
+  }
+
+  /// Build home address row below AppBar
+  Widget _buildHomeAddressRow() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        border: Border(bottom: BorderSide(color: Colors.grey[300]!)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.home, size: 18, color: Colors.green),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _hasHomeAddress
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _homePlaceName!,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (_homeAddress != null && _homeAddress!.isNotEmpty)
+                        Text(
+                          _homeAddress!,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey[600],
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                    ],
+                  )
+                : Text(
+                    'Tap to set home address',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                      color: Colors.grey[500],
+                    ),
+                  ),
+          ),
+          GestureDetector(
+            onTap: () {
+              setState(() {
+                _isEditingHome = !_isEditingHome;
+              });
+            },
+            child: Icon(
+              _isEditingHome ? Icons.close : Icons.edit,
+              size: 18,
+              color: Colors.grey[600],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Build search section
   Widget _buildSearchSection() {
+    // Determine which searches to show:
+    // - Destination search: admin AND (editing OR no destination)
+    // - Home search: editing OR no home address
+    final bool showDestinationSearch =
+        _isAdmin && (_isEditingDestination || !_hasDestination);
+    final bool showHomeSearch = _isEditingHome || !_hasHomeAddress;
+
+    // Hide entire widget only if both are hidden
+    if (!showDestinationSearch && !showHomeSearch) {
+      return const SizedBox.shrink();
+    }
+
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: SearchPlaceWidget(
@@ -456,6 +641,8 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
         onHomeAddressSelected: _handleHomeAddressSelected,
         onSetDestination: _handleSetAddress,
         storageService: storageService,
+        showDestinationSearch: showDestinationSearch,
+        showHomeSearch: showHomeSearch,
       ),
     );
   }
@@ -464,11 +651,7 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
   Widget _buildControlButtons() {
     return Padding(
       padding: const EdgeInsets.all(8.0),
-      child: TripControlButtons(
-        hasDestination: _pickedLocation != null,
-        onSetAddress: _handleSetAddress,
-        onMyLocation: _handleMyLocation,
-      ),
+      child: TripControlButtons(onMyLocation: _handleMyLocation),
     );
   }
 
