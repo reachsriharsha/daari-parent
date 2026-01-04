@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'login_page.dart';
+import 'home_page.dart';
 import 'services/location_storage_service.dart';
 import 'services/app_initializer.dart';
 import 'services/fcm_notification_handler.dart';
@@ -56,7 +57,30 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       navigatorKey: navigatorKey, // Global navigator key for FCM navigation
-      home: LoginPage(),
+      home: FutureBuilder<bool>(
+        future: _checkSession(),
+        builder: (context, snapshot) {
+          // Show loading while checking session
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Scaffold(
+              body: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          // Navigate based on session validity
+          final isValid = snapshot.data ?? false;
+          return isValid ? const HomePage() : const LoginPage();
+        },
+      ),
     );
+  }
+
+  Future<bool> _checkSession() async {
+    try {
+      return storageService.isSessionValid();
+    } catch (e) {
+      logger.error('[SESSION] Error checking session: $e');
+      return false;
+    }
   }
 }

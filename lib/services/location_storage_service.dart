@@ -505,6 +505,93 @@ class LocationStorageService {
   }
 
   // -----------------------------
+  // Session Management Methods
+  // -----------------------------
+
+  /// Save login timestamp
+  Future<bool> saveLoginTimestamp(DateTime timestamp) async {
+    try {
+      var settings = getAppSettings() ?? AppSettings();
+      settings.lastLoginTimestamp = timestamp;
+      return await saveAppSettings(settings);
+    } catch (e) {
+      logger.error('[HIVE ERROR] Error saving login timestamp: $e');
+      return false;
+    }
+  }
+
+  /// Get login timestamp
+  DateTime? getLoginTimestamp() {
+    try {
+      return getAppSettings()?.lastLoginTimestamp;
+    } catch (e) {
+      logger.error('[HIVE ERROR] Error getting login timestamp: $e');
+      return null;
+    }
+  }
+
+  /// Check if current session is valid (within 24 hours)
+  bool isSessionValid() {
+    try {
+      // Check 1: Get all required data
+      final timestamp = getLoginTimestamp();
+      final profId = getProfId();
+      final idToken = getIdToken();
+
+      // Check 2: Ensure all required fields exist
+      if (timestamp == null ||
+          profId == null ||
+          profId.isEmpty ||
+          idToken == null ||
+          idToken.isEmpty) {
+        logger.debug('[SESSION] Session invalid: Missing required data');
+        return false;
+      }
+
+      // Check 3: Verify timestamp is within 24 hours
+      final now = DateTime.now();
+      final difference = now.difference(timestamp);
+      final isWithin24Hours = difference.inHours < 24;
+
+      if (!isWithin24Hours) {
+        logger.debug(
+          '[SESSION] Session expired: ${difference.inHours} hours old',
+        );
+        return false;
+      }
+
+      logger.debug(
+        '[SESSION] Session valid: ${24 - difference.inHours} hours remaining',
+      );
+      return true;
+    } catch (e) {
+      logger.error('[SESSION ERROR] Error validating session: $e');
+      return false;
+    }
+  }
+
+  /// Clear session data (for logout)
+  Future<bool> clearSession() async {
+    try {
+      var settings = getAppSettings() ?? AppSettings();
+
+      // Clear authentication-related fields
+      settings.idToken = null;
+      settings.profId = null;
+      settings.lastLoginTimestamp = null;
+
+      // Keep backend URL and other settings for convenience
+
+      await saveAppSettings(settings);
+      logger.info('[SESSION] Session data cleared');
+      return true;
+    } catch (e) {
+      logger.error('[SESSION ERROR] Error clearing session: $e');
+      return false;
+    }
+  }
+
+  // -----------------------------
   // Home Coordinates Methods
   // -----------------------------
 
@@ -729,10 +816,18 @@ class LocationStorageService {
             final placeNameChanged =
                 hiveGroup.placeName != backendGroup.placeName;
 
+            // Check if admin or driver phone numbers have changed
+            final adminPhoneChanged =
+                hiveGroup.adminPhoneNumber != backendGroup.adminPhoneNumber;
+            final driverPhoneChanged =
+                hiveGroup.driverPhoneNumber != backendGroup.driverPhoneNumber;
+
             if (coordsChanged ||
                 nameChanged ||
                 addressChanged ||
-                placeNameChanged) {
+                placeNameChanged ||
+                adminPhoneChanged ||
+                driverPhoneChanged) {
               // Update with backend data
               hiveGroup.groupName = backendGroup.groupName;
               hiveGroup.destinationLatitude = backendGroup.destinationLatitude;
@@ -740,6 +835,8 @@ class LocationStorageService {
                   backendGroup.destinationLongitude;
               hiveGroup.address = backendGroup.address;
               hiveGroup.placeName = backendGroup.placeName;
+              hiveGroup.adminPhoneNumber = backendGroup.adminPhoneNumber;
+              hiveGroup.driverPhoneNumber = backendGroup.driverPhoneNumber;
               await saveGroup(hiveGroup);
               updated++;
               logger.info(

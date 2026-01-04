@@ -22,6 +22,8 @@ class GroupDetailsPage extends StatefulWidget {
   final String? address;
   final bool isAdmin;
   final List<String> memberPhoneNumbers;
+  final String? adminPhoneNumber;
+  final String? driverPhoneNumber;
 
   const GroupDetailsPage({
     super.key,
@@ -33,6 +35,8 @@ class GroupDetailsPage extends StatefulWidget {
     this.address,
     this.isAdmin = false,
     this.memberPhoneNumbers = const [],
+    this.adminPhoneNumber,
+    this.driverPhoneNumber,
   });
 
   @override
@@ -469,8 +473,11 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
           MaterialPageRoute(
             builder: (context) => GroupMembersScreen(
               groupName: widget.groupName,
+              groupId: widget.groupId,
               memberPhoneNumbers: widget.memberPhoneNumbers,
               isAdmin: _isAdmin,
+              adminPhoneNumber: widget.adminPhoneNumber,
+              currentDriverPhone: widget.driverPhoneNumber,
             ),
           ),
         );

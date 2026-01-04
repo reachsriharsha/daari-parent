@@ -31,6 +31,9 @@ class AppSettings extends HiveObject {
   @HiveField(8)
   String? homePlaceName;
 
+  @HiveField(9)
+  DateTime? lastLoginTimestamp;
+
   AppSettings({
     this.ngrokUrl,
     this.idToken,
@@ -41,6 +44,7 @@ class AppSettings extends HiveObject {
     this.homeLongitude,
     this.homeAddress,
     this.homePlaceName,
+    this.lastLoginTimestamp,
   });
 
   // Helper method to clear all settings
@@ -54,10 +58,11 @@ class AppSettings extends HiveObject {
     homeLongitude = null;
     homeAddress = null;
     homePlaceName = null;
+    lastLoginTimestamp = null;
   }
 
   @override
   String toString() {
-    return 'AppSettings(ngrokUrl: $ngrokUrl, profId: $profId, hasToken: ${idToken != null}, locationPermission: $locationPermissionGranted, hasFcmToken: ${fcmToken != null}, homeCoords: ${homeLatitude != null && homeLongitude != null ? "($homeLatitude, $homeLongitude)" : "null"}, homeAddress: $homeAddress, homePlaceName: $homePlaceName)';
+    return 'AppSettings(ngrokUrl: $ngrokUrl, profId: $profId, hasToken: ${idToken != null}, locationPermission: $locationPermissionGranted, hasFcmToken: ${fcmToken != null}, homeCoords: ${homeLatitude != null && homeLongitude != null ? "($homeLatitude, $homeLongitude)" : "null"}, homeAddress: $homeAddress, homePlaceName: $homePlaceName, lastLogin: $lastLoginTimestamp)';
   }
 }

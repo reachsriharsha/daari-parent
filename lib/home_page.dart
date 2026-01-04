@@ -7,6 +7,7 @@ import 'group_details_page.dart';
 import 'main.dart'; // To access storageService
 import 'widgets/status_widget.dart';
 import 'screens/log_viewer_screen.dart';
+import 'login_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -108,6 +109,43 @@ class _HomePageState extends State<HomePage> {
         Navigator.pop(context);
       }
       showMessageInStatus("error", "Failed to upload diagnostics: $e");
+    }
+  }
+
+  /// Handle logout action
+  Future<void> _handleLogout() async {
+    // Show confirmation dialog
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      // Clear session data
+      await storageService.clearSession();
+
+      showMessageInStatus("success", "Logged out successfully");
+
+      // Navigate to login page and clear navigation stack
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(builder: (context) => const LoginPage()),
+          (route) => false, // Remove all previous routes
+        );
+      }
     }
   }
 
@@ -216,6 +254,8 @@ class _HomePageState extends State<HomePage> {
                 );
               } else if (value == 'settings') {
                 _showSettingsDialog();
+              } else if (value == 'logout') {
+                _handleLogout();
               }
             },
             itemBuilder: (context) => [
@@ -236,6 +276,16 @@ class _HomePageState extends State<HomePage> {
                     Icon(Icons.bug_report, size: 20),
                     SizedBox(width: 12),
                     Text('Debug Logs'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'logout',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, size: 20),
+                    SizedBox(width: 12),
+                    Text('Logout'),
                   ],
                 ),
               ),
@@ -404,6 +454,14 @@ class _HomePageState extends State<HomePage> {
                                                 );
                                               }
 
+                                              // Extract admin and driver phone numbers
+                                              final adminPhone =
+                                                  group["admin_phone_number"]
+                                                      as String?;
+                                              final driverPhone =
+                                                  group["driver_phone_number"]
+                                                      as String?;
+
                                               Navigator.push(
                                                 context,
                                                 MaterialPageRoute(
@@ -425,6 +483,10 @@ class _HomePageState extends State<HomePage> {
                                                             false,
                                                         memberPhoneNumbers:
                                                             members,
+                                                        adminPhoneNumber:
+                                                            adminPhone,
+                                                        driverPhoneNumber:
+                                                            driverPhone,
                                                       ),
                                                 ),
                                               );

@@ -28,6 +28,12 @@ class Group extends HiveObject {
   @HiveField(7)
   List<String>? memberPhoneNumbers;
 
+  @HiveField(8)
+  String? adminPhoneNumber;
+
+  @HiveField(9)
+  String? driverPhoneNumber;
+
   Group({
     required this.groupId,
     required this.groupName,
@@ -37,6 +43,8 @@ class Group extends HiveObject {
     this.placeName,
     this.isAdmin = false,
     this.memberPhoneNumbers,
+    this.adminPhoneNumber,
+    this.driverPhoneNumber,
   });
 
   // Convenience getter for coordinates map
@@ -63,6 +71,8 @@ class Group extends HiveObject {
       memberPhoneNumbers: json['member_phone_numbers'] != null
           ? List<String>.from(json['member_phone_numbers'])
           : null,
+      adminPhoneNumber: json['admin_phone_number'],
+      driverPhoneNumber: json['driver_phone_number'],
     );
   }
 
@@ -78,5 +88,7 @@ class Group extends HiveObject {
     if (placeName != null) 'place_name': placeName,
     'is_admin': isAdmin,
     if (memberPhoneNumbers != null) 'member_phone_numbers': memberPhoneNumbers,
+    if (adminPhoneNumber != null) 'admin_phone_number': adminPhoneNumber,
+    if (driverPhoneNumber != null) 'driver_phone_number': driverPhoneNumber,
   };
 }

@@ -207,6 +207,11 @@ class _LoginPageState extends State<LoginPage> {
                               // Save backend URL to Hive
                               await storageService.saveNgrokUrl(backendUrl);
 
+                              // Save login timestamp for session management
+                              await storageService.saveLoginTimestamp(
+                                DateTime.now(),
+                              );
+
                               // Update global backend URL
                               BackendComService.instance.setBaseUrl(backendUrl);
 

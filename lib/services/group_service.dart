@@ -76,6 +76,8 @@ class GroupService {
       groupName: name,
       destinationLatitude: 12.91,
       destinationLongitude: 77.64,
+      memberPhoneNumbers: members,
+      isAdmin: true,
       address: null, // Initially null for new groups
       placeName: null,
     );
