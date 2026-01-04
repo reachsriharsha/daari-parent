@@ -8,12 +8,9 @@ import 'utils/app_logger.dart';
 class OtpService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final String backendUrl;
-  late final BackendComService _backendService;
   final FCMService _fcmService = FCMService();
 
-  OtpService({required this.backendUrl}) {
-    _backendService = BackendComService(baseUrl: backendUrl);
-  }
+  OtpService({required this.backendUrl});
 
   /// Step 1: Send OTP
   Future<void> sendOtp({
@@ -66,7 +63,10 @@ class OtpService {
       );
 
       // 3) Send ID token + FCM token to backend
-      final backendResponse = await _backendService.loginToBackEnd(
+      // Create a temporary BackendComService for login (singleton not configured yet)
+      final backendService = BackendComService.instance;
+      backendService.setBaseUrl(backendUrl);
+      final backendResponse = await backendService.loginToBackEnd(
         idToken,
         fcmToken: fcmToken,
       );
@@ -154,7 +154,7 @@ class OtpService {
       }
 
       // Send to backend
-      await _backendService.refreshFcmToken(
+      await BackendComService.instance.refreshFcmToken(
         idToken: idToken,
         fcmToken: fcmToken,
       );

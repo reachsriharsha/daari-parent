@@ -341,6 +341,11 @@ class LocationStorageService {
   /// Get total number of stored points
   int get totalPoints => _locationBox?.length ?? 0;
 
+  /// Get all location points (for diagnostics)
+  List<LocationPoint> getAllLocationPoints() {
+    return _locationBox?.values.toList() ?? [];
+  }
+
   /// Check if boxes are open
   bool get isInitialized =>
       _locationBox?.isOpen == true &&

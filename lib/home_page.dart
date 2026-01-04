@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'select_contacts_page.dart';
 import 'services/group_service.dart';
+import 'services/backend_com_service.dart';
+import 'services/diagnostic_service.dart';
 import 'group_details_page.dart';
 import 'main.dart'; // To access storageService
 import 'widgets/status_widget.dart';
@@ -41,6 +43,147 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  /// Handle diagnostic upload
+  Future<void> _handleDiagnosticsUpload() async {
+    try {
+      // Show loading dialog
+      if (mounted) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const AlertDialog(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Preparing diagnostics...'),
+              ],
+            ),
+          ),
+        );
+      }
+
+      // Create diagnostics ZIP
+      final zipFile = await DiagnosticService.createDiagnosticsZip();
+
+      // Update loading message
+      if (mounted) {
+        Navigator.pop(context);
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => const AlertDialog(
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Uploading diagnostics...'),
+              ],
+            ),
+          ),
+        );
+      }
+
+      try {
+        // Upload to backend
+        await BackendComService.instance.uploadDiagnostics(zipFile);
+
+        // Close loading dialog
+        if (mounted) {
+          Navigator.pop(context);
+        }
+      } finally {
+        // Always delete the temporary ZIP file (even on upload failure)
+        try {
+          await zipFile.delete();
+        } catch (e) {
+          // Ignore deletion errors
+        }
+      }
+    } catch (e) {
+      // Close loading dialog on error
+      if (mounted) {
+        Navigator.pop(context);
+      }
+      showMessageInStatus("error", "Failed to upload diagnostics: $e");
+    }
+  }
+
+  void _showSettingsDialog() {
+    final TextEditingController urlController = TextEditingController(
+      text: storageService.getNgrokUrl() ?? "",
+    );
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Settings'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: urlController,
+              decoration: const InputDecoration(
+                labelText: 'Backend URL',
+                hintText: 'http://... or https://...',
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.pop(context);
+                  _handleDiagnosticsUpload();
+                },
+                icon: const Icon(Icons.upload_file),
+                label: const Text('Upload Diagnostics'),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final url = urlController.text.trim();
+              if (url.isEmpty) {
+                showMessageInStatus("error", "URL cannot be empty");
+                return;
+              }
+              if (!url.startsWith('http://') && !url.startsWith('https://')) {
+                showMessageInStatus(
+                  "error",
+                  "URL must start with http:// or https://",
+                );
+                return;
+              }
+
+              await storageService.saveNgrokUrl(url);
+              BackendComService.instance.setBaseUrl(url);
+
+              // Update local state if needed
+              setState(() {
+                backendUrl = url;
+              });
+
+              if (context.mounted) {
+                Navigator.pop(context);
+                showMessageInStatus("success", "Settings saved successfully");
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -71,9 +214,21 @@ class _HomePageState extends State<HomePage> {
                     builder: (context) => const LogViewerScreen(),
                   ),
                 );
+              } else if (value == 'settings') {
+                _showSettingsDialog();
               }
             },
             itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'settings',
+                child: Row(
+                  children: [
+                    Icon(Icons.settings, size: 20),
+                    SizedBox(width: 12),
+                    Text('Settings'),
+                  ],
+                ),
+              ),
               const PopupMenuItem(
                 value: 'debug_logs',
                 child: Row(

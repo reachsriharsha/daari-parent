@@ -4,7 +4,8 @@ import 'OtpService.dart';
 import 'home_page.dart';
 import 'main.dart'; // To access storageService
 import 'widgets/status_widget.dart';
-import '../utils/app_logger.dart';
+import 'services/backend_com_service.dart';
+import 'utils/app_logger.dart';
 
 // Store verification ID here
 String? verificationId;
@@ -203,6 +204,12 @@ class _LoginPageState extends State<LoginPage> {
                             verificationId: verificationId!,
                             smsCode: otpController.text.trim(),
                             onBackendValidated: () async {
+                              // Save backend URL to Hive
+                              await storageService.saveNgrokUrl(backendUrl);
+
+                              // Update global backend URL
+                              BackendComService.instance.setBaseUrl(backendUrl);
+
                               // Request location permission after successful login
                               await _requestLocationPermissionIfNeeded();
 

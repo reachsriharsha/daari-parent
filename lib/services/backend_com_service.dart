@@ -1,12 +1,43 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:io';
+import '../main.dart'; // To access storageService
 import '../utils/app_logger.dart';
+import '../widgets/status_widget.dart';
 
 /// Service class to handle all backend API communications
 class BackendComService {
-  final String baseUrl;
+  // Singleton instance
+  static final BackendComService instance = BackendComService._internal();
 
-  BackendComService({required this.baseUrl});
+  factory BackendComService() {
+    return instance;
+  }
+
+  BackendComService._internal();
+
+  // Global variable for the backend URL
+  String? _baseUrl;
+
+  // Getter for base URL with default fallback
+  String get baseUrl => _baseUrl ?? 'https://api.lusidlogix.com';
+
+  /// Initialize from storage on app start
+  Future<void> init() async {
+    final storedUrl = storageService.getNgrokUrl();
+    if (storedUrl != null && storedUrl.isNotEmpty) {
+      _baseUrl = storedUrl;
+      logger.debug('[BACKEND] Initialized with URL: $_baseUrl');
+    } else {
+      logger.debug('[BACKEND] No stored URL found during initialization');
+    }
+  }
+
+  /// Set the base URL (called after login or from settings)
+  void setBaseUrl(String url) {
+    _baseUrl = url;
+    logger.debug('[BACKEND] Base URL set to: $_baseUrl');
+  }
 
   /// Send Firebase ID token to backend for authentication
   /// Optionally includes FCM token for push notifications
@@ -213,6 +244,69 @@ class BackendComService {
           "Failed to update user home coordinates: ${response.statusCode} ${response.body}";
       logger.error('[BackendComService] $errorMessage');
       throw Exception(errorMessage);
+    }
+  }
+
+  /// Upload diagnostics ZIP file
+  Future<Map<String, dynamic>> uploadDiagnostics(File zipFile) async {
+    final idToken = storageService.getIdToken();
+    if (idToken == null || idToken.isEmpty) {
+      showMessageInStatus("error", "Not authenticated");
+      throw Exception("Not authenticated");
+    }
+
+    final url = Uri.parse("$baseUrl/api/diagnostics");
+
+    logger.debug(
+      "[API Request] POST $url - Uploading diagnostics (${await zipFile.length()} bytes)",
+    );
+
+    try {
+      // Create multipart request
+      final request = http.MultipartRequest('POST', url);
+
+      // Add authorization header
+      request.headers['Authorization'] = 'Bearer $idToken';
+
+      // Add file to request
+      final fileStream = http.ByteStream(zipFile.openRead());
+      final fileLength = await zipFile.length();
+
+      request.files.add(
+        http.MultipartFile(
+          'file',
+          fileStream,
+          fileLength,
+          filename: 'diagnostics.zip',
+        ),
+      );
+
+      // Send request
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      logger.debug(
+        "[API Response Status] ${response.statusCode} Body: ${response.body}",
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        showMessageInStatus("success", "Diagnostics uploaded successfully");
+        return jsonDecode(response.body);
+      } else if (response.statusCode == 401) {
+        // Session expired
+        logger.error('[ERROR] Unauthorized (401) - Session expired');
+        showMessageInStatus("error", "Session expired. Please login again.");
+        throw Exception('Session expired. Please login again.');
+      } else {
+        showMessageInStatus("error", "Failed to upload diagnostics");
+        logger.error(
+          "Failed uploadDiagnostics: ${response.statusCode} ${response.body}",
+        );
+        throw Exception("Failed to upload diagnostics: ${response.statusCode}");
+      }
+    } catch (e) {
+      logger.error("[ERROR] Error uploading diagnostics: $e");
+      rethrow;
     }
   }
 }

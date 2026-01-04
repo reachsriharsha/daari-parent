@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'location_storage_service.dart';
+import 'backend_com_service.dart';
 import 'fcm_service.dart';
 import 'fcm_notification_handler.dart';
 import 'announcement_service.dart';
@@ -22,7 +23,10 @@ class AppInitializer {
       // 1. Initialize Hive Storage (highest priority - needed by all other services)
       await _initializeHive(storageService);
 
-      // 2. Initialize Firebase Core (required for FCM and Auth)
+      // 2. Initialize BackendComService (needs Hive for URL storage)
+      await _initializeBackendComService();
+
+      // 3. Initialize Firebase Core (required for FCM and Auth)
       await _initializeFirebase();
 
       // 3. Initialize FCM Service
@@ -52,6 +56,20 @@ class AppInitializer {
     } catch (e) {
       logger.error('[APP INIT ERROR] Hive initialization failed: $e');
       rethrow; // Hive is critical - can't continue without it
+    }
+  }
+
+  /// Initialize BackendComService
+  static Future<void> _initializeBackendComService() async {
+    try {
+      logger.info('[APP INIT] Initializing BackendComService...');
+      await BackendComService.instance.init();
+      logger.info('[APP INIT] BackendComService initialized');
+    } catch (e) {
+      logger.error(
+        '[APP INIT ERROR] BackendComService initialization failed: $e',
+      );
+      // Don't rethrow - app can work with default URL
     }
   }
 

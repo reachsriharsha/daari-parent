@@ -6,11 +6,8 @@ import '../utils/app_logger.dart';
 
 class GroupService {
   final String baseUrl;
-  late final BackendComService _backendService;
 
-  GroupService({required this.baseUrl}) {
-    _backendService = BackendComService(baseUrl: baseUrl);
-  }
+  GroupService({required this.baseUrl});
 
   // -----------------------------
   // Group APIs
@@ -29,13 +26,14 @@ class GroupService {
     }
 
     // Use backend service for communication
-    final responseData = await _backendService.sendGroupDestCoordsToBackEnd(
-      idToken: idToken,
-      groupId: groupId,
-      latitude: latitude,
-      longitude: longitude,
-      onLog: onLog,
-    );
+    final responseData = await BackendComService.instance
+        .sendGroupDestCoordsToBackEnd(
+          idToken: idToken,
+          groupId: groupId,
+          latitude: latitude,
+          longitude: longitude,
+          onLog: onLog,
+        );
 
     // Update Hive storage after successful backend update
     await _updateGroupInHive(groupId, latitude, longitude);
@@ -64,12 +62,13 @@ class GroupService {
     }
 
     // Use backend service for communication
-    final responseData = await _backendService.sendGroupCreateRequestToBackEnd(
-      idToken: idToken,
-      name: name,
-      profId: profId,
-      members: members,
-    );
+    final responseData = await BackendComService.instance
+        .sendGroupCreateRequestToBackEnd(
+          idToken: idToken,
+          name: name,
+          profId: profId,
+          members: members,
+        );
 
     // Save to Hive using Group model (keeping Hive update in group service)
     final group = Group(

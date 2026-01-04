@@ -7,14 +7,11 @@ import '../utils/app_logger.dart';
 class UserService {
   final String baseUrl;
   final LocationStorageService _storageService;
-  late final BackendComService _backendService;
 
   UserService({
     required this.baseUrl,
     required LocationStorageService storageService,
-  }) : _storageService = storageService {
-    _backendService = BackendComService(baseUrl: baseUrl);
-  }
+  }) : _storageService = storageService;
 
   /// Update user home coordinates, address, and place name locally and sync to backend
   Future<Map<String, dynamic>> updateUserHomeCoordinates({
@@ -42,15 +39,16 @@ class UserService {
       );
 
       // Send data to backend
-      final result = await _backendService.sendUserHomeCoordinatesToBackEnd(
-        idToken: idToken,
-        profId: profId,
-        latitude: latitude,
-        longitude: longitude,
-        homeAddress: homeAddress,
-        homePlaceName: homePlaceName,
-        onLog: onLog,
-      );
+      final result = await BackendComService.instance
+          .sendUserHomeCoordinatesToBackEnd(
+            idToken: idToken,
+            profId: profId,
+            latitude: latitude,
+            longitude: longitude,
+            homeAddress: homeAddress,
+            homePlaceName: homePlaceName,
+            onLog: onLog,
+          );
 
       onLog?.call('[USER] Home data updated successfully');
 
