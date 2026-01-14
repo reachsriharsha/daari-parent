@@ -102,7 +102,7 @@ class DiagnosticService {
               'timestamp': p.timestamp,
               'latitude': p.latitude,
               'longitude': p.longitude,
-              'tripId': p.tripId,
+              'tripName': p.tripName,
               'tripEventType': p.tripEventType,
               'isSynced': p.isSynced,
             },

@@ -19,9 +19,8 @@ class TripController extends ChangeNotifier {
   LatLng? _pickedLocation;
   LatLng? _currentLocation;
 
-  // Trip state
+  // Trip state - tripName is the single source of truth
   bool _tripActive = false;
-  int? _tripId;
   String? _tripName;
   int? _currentGroupId;
 
@@ -74,7 +73,6 @@ class TripController extends ChangeNotifier {
     final settings = _storageService.getTripSettings();
     if (settings?.isTripActive == true) {
       return {
-        'tripId': settings?.currentTripId,
         'groupId': settings?.currentGroupId,
         'tripName': settings?.currentTripName,
         'startTime': settings?.tripStartTime,
@@ -87,17 +85,16 @@ class TripController extends ChangeNotifier {
   Future<void> resumeTrip() async {
     final settings = _storageService.getTripSettings();
     if (settings?.isTripActive == true) {
-      _tripId = settings?.currentTripId;
       _currentGroupId = settings?.currentGroupId;
       _tripName = settings?.currentTripName;
       _tripActive = true;
 
-      logger.info('[RESUME] Resuming trip: ID=$_tripId, Name=$_tripName');
+      logger.info('[RESUME] Resuming trip: Name=$_tripName');
 
-      // Load previous path points from Hive
-      if (_tripId != null) {
-        final savedPoints = _storageService.getLocationPointsByTripId(
-          _tripId.toString(),
+      // Load previous path points from Hive using tripName
+      if (_tripName != null) {
+        final savedPoints = _storageService.getLocationPointsByTripName(
+          _tripName!,
         );
         _pathPoints = savedPoints
             .map((p) => LatLng(p.latitude, p.longitude))
@@ -144,10 +141,10 @@ class TripController extends ChangeNotifier {
         '[SYNC] Found ${unsyncedPoints.length} unsynced points, attempting bulk sync...',
       );
 
-      // Group by tripId
+      // Group by tripName (single source of truth)
       final Map<String, List<LocationPoint>> pointsByTrip = {};
       for (var point in unsyncedPoints) {
-        pointsByTrip.putIfAbsent(point.tripId, () => []).add(point);
+        pointsByTrip.putIfAbsent(point.tripName, () => []).add(point);
       }
 
       // Sync each trip's points
@@ -168,19 +165,17 @@ class TripController extends ChangeNotifier {
     for (var point in points) {
       try {
         // Attempt to send to backend
-        final tripId = int.tryParse(point.tripId);
         final groupId = point.groupId != null
             ? int.tryParse(point.groupId!)
             : null;
 
-        if (tripId != null && groupId != null) {
+        if (point.tripName.isNotEmpty && groupId != null) {
           await sendUpdateTripMsg(
-            tripId: tripId,
             groupId: groupId,
             latitude: point.latitude,
             longitude: point.longitude,
             tripEvent: point.tripEventType ?? "update",
-            tripName: point.tripId, // Use tripId as fallback
+            tripName: point.tripName,
             onLog: (log) => logger.debug('[SYNC] Bulk sync log: $log'),
           );
 
@@ -250,8 +245,8 @@ class TripController extends ChangeNotifier {
   }
 
   // Send update trip message to backend (update/finish event)
+  // tripName is the single source of truth identifier
   Future<Map<String, dynamic>> sendUpdateTripMsg({
-    required int tripId,
     required int groupId,
     required double latitude,
     required double longitude,
@@ -265,7 +260,6 @@ class TripController extends ChangeNotifier {
     final url = Uri.parse("$backendUrl/api/groups/trip/update");
 
     final body = {
-      "trip_id": tripId,
       "group_id": groupId,
       "trip_name": tripName,
       "trip_event": tripEvent,
@@ -408,9 +402,7 @@ class TripController extends ChangeNotifier {
             await updateMapDisplay();
 
             // Send location update to backend
-            if (_currentGroupId != null &&
-                _tripId != null &&
-                _tripName != null) {
+            if (_currentGroupId != null && _tripName != null) {
               await _sendLocationUpdate(position);
             }
           },
@@ -425,13 +417,14 @@ class TripController extends ChangeNotifier {
   Future<void> _sendLocationUpdate(Position position) async {
     try {
       // Save to Hive first (fast, local storage)
+      // tripName is the single source of truth identifier
       final locationPoint = LocationPoint(
         latitude: position.latitude,
         longitude: position.longitude,
         timestamp: DateTime.now(),
         speed: position.speed,
         accuracy: position.accuracy,
-        tripId: _tripId.toString(),
+        tripName: _tripName!,
         tripEventType: "update",
         groupId: _currentGroupId.toString(),
         isSynced: false, // Mark as not synced initially
@@ -441,7 +434,6 @@ class TripController extends ChangeNotifier {
 
       // Then attempt to send to backend
       await sendUpdateTripMsg(
-        tripId: _tripId!,
         groupId: _currentGroupId!,
         latitude: position.latitude,
         longitude: position.longitude,
@@ -452,7 +444,7 @@ class TripController extends ChangeNotifier {
 
       // Mark as synced after successful backend upload
       await _storageService.markPointAsSynced(
-        _tripId.toString(),
+        _tripName!,
         locationPoint.timestamp,
         "update",
       );
@@ -542,29 +534,28 @@ class TripController extends ChangeNotifier {
       );
 
       _tripActive = true;
-      _tripId = resp["trip_id"] ?? resp["id"];
+      // tripName is the single source of truth - ignore trip_id from response
       _tripName = resp["trip_name"];
 
-      logger.info('[TRIP] Trip started: ID=$_tripId, Name=$_tripName');
+      logger.info('[TRIP] Trip started: Name=$_tripName');
 
-      // Save trip settings to Hive
+      // Save trip settings to Hive - only tripName, no tripId
       final tripSettings = TripSettings(
         isTripActive: true,
-        currentTripId: _tripId,
         currentGroupId: groupId,
         currentTripName: _tripName,
         tripStartTime: DateTime.now(),
       );
       await _storageService.saveTripSettings(tripSettings);
 
-      // Save starting location point to Hive
+      // Save starting location point to Hive with tripName
       final startPoint = LocationPoint(
         latitude: position.latitude,
         longitude: position.longitude,
         timestamp: DateTime.now(),
         speed: position.speed,
         accuracy: position.accuracy,
-        tripId: _tripId.toString(),
+        tripName: _tripName!,
         tripEventType: "start",
         groupId: groupId.toString(),
         isSynced: true, // Already sent to backend
@@ -574,12 +565,10 @@ class TripController extends ChangeNotifier {
       notifyListeners();
 
       // Start background service for continuous tracking
-      await BackgroundLocationService.startService(
-        tripId: _tripId!,
-        groupId: groupId,
-        tripName: _tripName!,
+      await BackgroundLocationService.startService();
+      logger.info(
+        '[BACKGROUND] Background service started for trip $_tripName',
       );
-      logger.info('[BACKGROUND] Background service started for trip $_tripId');
 
       // Start live location tracking (foreground) - handles location updates and backend sync
       _startLocationTracking();
@@ -599,31 +588,31 @@ class TripController extends ChangeNotifier {
   }
 
   /// Send trip finish event to backend
+  /// Uses tripName as the single source of truth identifier
   Future<void> _sendTripFinish(int groupId, Function(String) onLog) async {
-    if (_tripId == null || _tripName == null) return;
+    if (_tripName == null) return;
 
     Position position = await Geolocator.getCurrentPosition(
       desiredAccuracy: LocationAccuracy.high,
     );
 
     try {
-      // Save finish point to Hive first
+      // Save finish point to Hive first with tripName
       final finishPoint = LocationPoint(
         latitude: position.latitude,
         longitude: position.longitude,
         timestamp: DateTime.now(),
         speed: position.speed,
         accuracy: position.accuracy,
-        tripId: _tripId.toString(),
+        tripName: _tripName!,
         tripEventType: "finish",
         groupId: groupId.toString(),
         isSynced: false,
       );
       await _storageService.saveLocationPoint(finishPoint);
 
-      // Send to backend
+      // Send to backend using tripName
       final resp = await sendUpdateTripMsg(
-        tripId: _tripId!,
         groupId: groupId,
         latitude: position.latitude,
         longitude: position.longitude,
@@ -632,9 +621,9 @@ class TripController extends ChangeNotifier {
         onLog: onLog,
       );
 
-      // Mark finish point as synced
+      // Mark finish point as synced using tripName
       await _storageService.markPointAsSynced(
-        _tripId.toString(),
+        _tripName!,
         finishPoint.timestamp,
         "finish",
       );
@@ -655,8 +644,8 @@ class TripController extends ChangeNotifier {
       _polylines.clear();
       _routeInfo = null;
 
-      // Log trip statistics
-      final stats = _storageService.getTripStats(_tripId.toString());
+      // Log trip statistics using tripName
+      final stats = _storageService.getTripStats(_tripName!);
       logger.info('[TRIP] Trip finished:');
       logger.info('   - Total points recorded: ${stats['total']}');
       logger.info('   - Synced: ${stats['synced']}');
@@ -689,12 +678,11 @@ class TripController extends ChangeNotifier {
 
   /// Send complete trip summary with all collected path points
   Future<void> _sendTripSummary(int groupId, Function(String) onLog) async {
-    if (_tripId == null || _tripName == null) return;
+    if (_tripName == null) return;
 
     try {
-      // Prepare trip summary data
+      // Prepare trip summary data - tripName is the single source of truth
       final tripSummaryData = {
-        'trip_id': _tripId,
         'group_id': groupId,
         'trip_name': _tripName,
         'total_points': _pathPoints.length,
@@ -709,7 +697,6 @@ class TripController extends ChangeNotifier {
 
       logger.info('[SUMMARY] Trip Summary:');
       logger.info('   - Total path points: ${_pathPoints.length}');
-      logger.info('   - Trip ID: $_tripId');
       logger.info('   - Trip Name: $_tripName');
       logger.info(
         '   - Path data prepared: ${tripSummaryData['path'].toString().substring(0, 100)}...',

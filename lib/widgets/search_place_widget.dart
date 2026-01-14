@@ -7,7 +7,7 @@ import '../utils/app_logger.dart';
 
 class SearchPlaceWidget extends StatefulWidget {
   final GoogleMapController? mapController;
-  final Function(LatLng, String) onPlaceSelected;
+  final Function(LatLng, String, String) onPlaceSelected;
   final Function(LatLng, String, String)? onHomeAddressSelected;
   final VoidCallback onSetDestination;
   final dynamic storageService;
@@ -177,8 +177,12 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
         final coords = details.details!.coordinates;
         final latLng = LatLng(coords.latitude, coords.longitude);
         final name = details.details!.name;
+        final address = details.details!.formattedAddress.isNotEmpty
+            ? details.details!.formattedAddress
+            : name;
 
         logger.debug('[SEARCH] Selected place: $name at $latLng');
+        logger.debug('[SEARCH] Address: $address');
 
         // Clear search state first
         setState(() {
@@ -188,7 +192,7 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
         });
 
         // Notify parent widget to update map and show marker
-        widget.onPlaceSelected(latLng, name);
+        widget.onPlaceSelected(latLng, name, address);
 
         logger.debug('[SEARCH] Map should now show pin at $latLng');
       }

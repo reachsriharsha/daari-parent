@@ -3,7 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 /// Immutable state for viewing a remote trip
 /// Contains all data needed to render trip on map and UI
 class TripViewingState {
-  final String tripId;
+  final String tripName; // RENAMED: Use tripName as primary identifier
   final int groupId;
   final List<LatLng> pathPoints;
   final DateTime? tripStartTime;
@@ -14,7 +14,7 @@ class TripViewingState {
   final String lastEventDetails;
 
   TripViewingState({
-    required this.tripId,
+    required this.tripName,
     required this.groupId,
     required this.pathPoints,
     this.tripStartTime,
@@ -27,13 +27,13 @@ class TripViewingState {
 
   /// Create initial state when trip starts
   factory TripViewingState.initial({
-    required String tripId,
+    required String tripName,
     required int groupId,
     required LatLng startLocation,
     DateTime? startTime,
   }) {
     return TripViewingState(
-      tripId: tripId,
+      tripName: tripName,
       groupId: groupId,
       pathPoints: [startLocation],
       tripStartTime: startTime ?? DateTime.now(),
@@ -49,7 +49,7 @@ class TripViewingState {
   /// Create empty state
   factory TripViewingState.empty() {
     return TripViewingState(
-      tripId: '',
+      tripName: '',
       groupId: 0,
       pathPoints: [],
       isTripActive: false,
@@ -81,7 +81,7 @@ class TripViewingState {
 
   /// Create a copy with updated fields
   TripViewingState copyWith({
-    String? tripId,
+    String? tripName,
     int? groupId,
     List<LatLng>? pathPoints,
     DateTime? tripStartTime,
@@ -92,7 +92,7 @@ class TripViewingState {
     String? lastEventDetails,
   }) {
     return TripViewingState(
-      tripId: tripId ?? this.tripId,
+      tripName: tripName ?? this.tripName,
       groupId: groupId ?? this.groupId,
       pathPoints: pathPoints ?? this.pathPoints,
       tripStartTime: tripStartTime ?? this.tripStartTime,
@@ -128,6 +128,6 @@ class TripViewingState {
 
   @override
   String toString() {
-    return 'TripViewingState(tripId: $tripId, points: ${pathPoints.length}, active: $isTripActive)';
+    return 'TripViewingState(tripName: $tripName, points: ${pathPoints.length}, active: $isTripActive)';
   }
 }

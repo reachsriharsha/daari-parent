@@ -62,7 +62,7 @@ class LocationStorageService {
     try {
       await _locationBox?.add(point);
       logger.info(
-        '[HIVE] Saved location point: ${point.tripId} - ${point.tripEventType}',
+        '[HIVE] Saved location point: ${point.tripName} - ${point.tripEventType}',
       );
       return true;
     } catch (e) {
@@ -109,15 +109,18 @@ class LocationStorageService {
     }
   }
 
-  /// Get all location points for a specific trip
-  List<LocationPoint> getLocationPointsByTripId(String tripId) {
+  /// Get all location points for a specific trip by tripName
+  /// tripName is the single source of truth identifier
+  List<LocationPoint> getLocationPointsByTripName(String tripName) {
     try {
       final points =
           _locationBox?.values
-              .where((point) => point.tripId == tripId)
+              .where((point) => point.tripName == tripName)
               .toList() ??
           [];
-      logger.info('[HIVE] Retrieved ${points.length} points for trip $tripId');
+      logger.info(
+        '[HIVE] Retrieved ${points.length} points for trip $tripName',
+      );
       return points;
     } catch (e) {
       logger.error('[HIVE ERROR] Error getting location points: $e');
@@ -153,7 +156,7 @@ class LocationStorageService {
             timestamp: point.timestamp,
             speed: point.speed,
             accuracy: point.accuracy,
-            tripId: point.tripId,
+            tripName: point.tripName,
             isSynced: true,
             tripEventType: point.tripEventType,
             groupId: point.groupId,
@@ -172,15 +175,16 @@ class LocationStorageService {
   }
 
   /// Mark a single point as synced by finding it in the box
+  /// Uses tripName as the identifier
   Future<bool> markPointAsSynced(
-    String tripId,
+    String tripName,
     DateTime timestamp,
     String? eventType,
   ) async {
     try {
       final point = _locationBox?.values.firstWhere(
         (p) =>
-            p.tripId == tripId &&
+            p.tripName == tripName &&
             p.timestamp == timestamp &&
             p.tripEventType == eventType,
         orElse: () => throw Exception('Point not found'),
@@ -194,7 +198,7 @@ class LocationStorageService {
           timestamp: point.timestamp,
           speed: point.speed,
           accuracy: point.accuracy,
-          tripId: point.tripId,
+          tripName: point.tripName,
           isSynced: true,
           tripEventType: point.tripEventType,
           groupId: point.groupId,
@@ -238,10 +242,10 @@ class LocationStorageService {
     }
   }
 
-  /// Get statistics for a specific trip
-  Map<String, dynamic> getTripStats(String tripId) {
+  /// Get statistics for a specific trip by tripName
+  Map<String, dynamic> getTripStats(String tripName) {
     try {
-      final points = getLocationPointsByTripId(tripId);
+      final points = getLocationPointsByTripName(tripName);
       final synced = points.where((p) => p.isSynced).length;
       final unsynced = points.where((p) => !p.isSynced).length;
 
@@ -258,33 +262,33 @@ class LocationStorageService {
     }
   }
 
-  /// Get all trips (unique trip IDs)
-  List<String> getAllTripIds() {
+  /// Get all trips (unique trip names)
+  List<String> getAllTripNames() {
     try {
-      final tripIds = <String>{};
+      final tripNames = <String>{};
       final values = _locationBox?.values ?? [];
       for (var point in values) {
-        tripIds.add(point.tripId);
+        tripNames.add(point.tripName);
       }
-      return tripIds.toList();
+      return tripNames.toList();
     } catch (e) {
-      logger.error('[HIVE ERROR] Error getting trip IDs: $e');
+      logger.error('[HIVE ERROR] Error getting trip names: $e');
       return [];
     }
   }
 
   /// Get all FCM-received points for a specific trip
   /// Used by TripViewerController to reconstruct remote trips
-  List<LocationPoint> getFCMPointsForTrip(String tripId) {
+  List<LocationPoint> getFCMPointsForTrip(String tripName) {
     try {
       final points =
           _locationBox?.values
-              .where((p) => p.tripId == tripId && p.source == 'fcm')
+              .where((p) => p.tripName == tripName && p.source == 'fcm')
               .toList()
             ?..sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
       logger.info(
-        '[HIVE] Retrieved ${points?.length ?? 0} FCM points for trip $tripId',
+        '[HIVE] Retrieved ${points?.length ?? 0} FCM points for trip $tripName',
       );
       return points ?? [];
     } catch (e) {
@@ -295,16 +299,16 @@ class LocationStorageService {
 
   /// Get all GPS-tracked points for a specific trip
   /// Used to differentiate own trips from watched trips
-  List<LocationPoint> getGPSPointsForTrip(String tripId) {
+  List<LocationPoint> getGPSPointsForTrip(String tripName) {
     try {
       final points =
           _locationBox?.values
-              .where((p) => p.tripId == tripId && p.source == 'gps')
+              .where((p) => p.tripName == tripName && p.source == 'gps')
               .toList()
             ?..sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
       logger.info(
-        '[HIVE] Retrieved ${points?.length ?? 0} GPS points for trip $tripId',
+        '[HIVE] Retrieved ${points?.length ?? 0} GPS points for trip $tripName',
       );
       return points ?? [];
     } catch (e) {

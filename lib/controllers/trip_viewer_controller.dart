@@ -59,7 +59,7 @@ class TripViewerController extends ChangeNotifier {
   /// Handle trip start event
   Future<void> handleTripStart(TripUpdateData data) async {
     try {
-      logger.info('[VIEWER] Handling trip start: ${data.tripId}');
+      logger.info('[VIEWER] Handling trip start: ${data.tripName}');
 
       // Reset proximity announcement flags for new trip
       _announced1km = false;
@@ -71,7 +71,7 @@ class TripViewerController extends ChangeNotifier {
 
       // Create new viewing state
       _viewingState = TripViewingState.initial(
-        tripId: data.tripId,
+        tripName: data.tripName,
         groupId: data.groupId,
         startLocation: startLocation,
         startTime: data.timestamp,
@@ -81,7 +81,7 @@ class TripViewerController extends ChangeNotifier {
       await _saveTripPoint(data, isStartPoint: true);
 
       // Save watching trip to TripSettings
-      await _saveWatchingTrip(data.tripId, data.groupId);
+      await _saveWatchingTrip(data.tripName, data.groupId);
 
       // Update map markers
       _updateMarkers();
@@ -112,9 +112,9 @@ class TripViewerController extends ChangeNotifier {
       );
 
       // Ignore updates for different trip
-      if (_viewingState.tripId != data.tripId) {
+      if (_viewingState.tripName != data.tripName) {
         logger.info(
-          '[VIEWER] Ignoring update for different trip: ${data.tripId}',
+          '[VIEWER] Ignoring update for different trip: ${data.tripName}',
         );
         return;
       }
@@ -156,12 +156,12 @@ class TripViewerController extends ChangeNotifier {
   /// Handle trip finish event
   Future<void> handleTripFinish(TripUpdateData data) async {
     try {
-      logger.info('[VIEWER] Handling trip finish: ${data.tripId}');
+      logger.info('[VIEWER] Handling trip finish: ${data.tripName}');
 
       // Ignore finish for different trip
-      if (_viewingState.tripId != data.tripId) {
+      if (_viewingState.tripName != data.tripName) {
         logger.info(
-          '[VIEWER] Ignoring finish for different trip: ${data.tripId}',
+          '[VIEWER] Ignoring finish for different trip: ${data.tripName}',
         );
         return;
       }
@@ -208,18 +208,18 @@ class TripViewerController extends ChangeNotifier {
 
       // Check TripSettings for watching trip
       final tripSettings = _storageService.getTripSettings();
-      final watchingTripId = tripSettings?.watchingTripId;
+      final watchingTripName = tripSettings?.watchingTripName;
 
-      if (watchingTripId == null) {
+      if (watchingTripName == null) {
         logger.info('[VIEWER] No active watching trip found');
         return;
       }
 
-      logger.info('[VIEWER] Found watching trip: $watchingTripId');
+      logger.info('[VIEWER] Found watching trip: $watchingTripName');
 
       // Load all FCM-received points for this trip
-      final allPoints = _storageService.getLocationPointsByTripId(
-        watchingTripId,
+      final allPoints = _storageService.getLocationPointsByTripName(
+        watchingTripName,
       );
       final fcmPoints = allPoints.where((p) => p.source == 'fcm').toList()
         ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
@@ -239,7 +239,7 @@ class TripViewerController extends ChangeNotifier {
       final lastPoint = fcmPoints.last;
 
       _viewingState = TripViewingState(
-        tripId: watchingTripId,
+        tripName: watchingTripName,
         groupId: tripSettings?.watchingGroupId ?? groupId,
         pathPoints: pathPoints,
         tripStartTime: fcmPoints.first.timestamp,
@@ -334,7 +334,7 @@ class TripViewerController extends ChangeNotifier {
 
     _polylines.add(
       Polyline(
-        polylineId: PolylineId('trip_path_${_viewingState.tripId}'),
+        polylineId: PolylineId('trip_path_${_viewingState.tripName}'),
         points: _viewingState.pathPoints,
         color: Colors.blue,
         width: 6,
@@ -367,7 +367,7 @@ class TripViewerController extends ChangeNotifier {
         latitude: data.latitude,
         longitude: data.longitude,
         timestamp: data.timestamp,
-        tripId: data.tripId,
+        tripName: data.tripName,
         groupId: data.groupId.toString(),
         tripEventType: data.eventType,
         source: 'fcm',
@@ -386,14 +386,14 @@ class TripViewerController extends ChangeNotifier {
   }
 
   /// Save watching trip to TripSettings
-  Future<void> _saveWatchingTrip(String tripId, int groupId) async {
+  Future<void> _saveWatchingTrip(String tripName, int groupId) async {
     try {
       final settings = _storageService.getTripSettings() ?? TripSettings();
-      settings.watchingTripId = tripId;
+      settings.watchingTripName = tripName;
       settings.watchingGroupId = groupId;
       await _storageService.saveTripSettings(settings);
 
-      logger.info('[VIEWER] Saved watching trip: $tripId');
+      logger.info('[VIEWER] Saved watching trip: $tripName');
     } catch (e) {
       logger.error('[VIEWER ERROR] Failed to save watching trip: $e');
     }

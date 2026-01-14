@@ -320,183 +320,192 @@ class _HomePageState extends State<HomePage> {
                         Expanded(
                           child: groups.isEmpty
                               ? const Center(child: Text("No groups found"))
-                              : ListView.builder(
-                                  itemCount: groups.length,
-                                  itemBuilder: (context, index) {
-                                    final group = groups[index];
-                                    return Card(
-                                      margin: const EdgeInsets.symmetric(
-                                        vertical: 8,
-                                        horizontal: 16,
-                                      ),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(16),
-                                      ),
-                                      elevation: 2,
-                                      color: Colors.purple[50],
-                                      child: ExpansionTile(
-                                        leading: CircleAvatar(
-                                          backgroundColor: Colors.grey[300],
-                                          child: Icon(
-                                            Icons.group,
-                                            color: Colors.deepPurple,
+                              : Scrollbar(
+                                  thumbVisibility: true,
+                                  child: ListView.builder(
+                                    itemCount: groups.length,
+                                    itemBuilder: (context, index) {
+                                      final group = groups[index];
+                                      return Card(
+                                        margin: const EdgeInsets.symmetric(
+                                          vertical: 8,
+                                          horizontal: 16,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            16,
                                           ),
                                         ),
-                                        title: Text(
-                                          group["name"] ?? "",
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 18,
-                                          ),
-                                        ),
-                                        subtitle: Text(
-                                          'Members: ${group["member_list"] != null ? (group["member_list"] as List).length.toString() : "N/A"}',
-                                          style: const TextStyle(fontSize: 14),
-                                        ),
-                                        children: [
-                                          Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 16.0,
-                                              vertical: 8.0,
+                                        elevation: 2,
+                                        color: Colors.purple[50],
+                                        child: ExpansionTile(
+                                          leading: CircleAvatar(
+                                            backgroundColor: Colors.grey[300],
+                                            child: Icon(
+                                              Icons.group,
+                                              color: Colors.deepPurple,
                                             ),
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                Row(
-                                                  children: [
-                                                    const Text(
-                                                      'Group ID: ',
-                                                      style: TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                      ),
-                                                    ),
-                                                    Text(
-                                                      group["id"].toString(),
-                                                    ),
-                                                  ],
-                                                ),
-                                                const SizedBox(height: 8),
-                                                if (group["dest_coordinates"] !=
-                                                    null)
-                                                  Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment
-                                                            .start,
+                                          ),
+                                          title: Text(
+                                            group["name"] ?? "",
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 18,
+                                            ),
+                                          ),
+                                          subtitle: Text(
+                                            'Members: ${group["member_list"] != null ? (group["member_list"] as List).length.toString() : "N/A"}',
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                          children: [
+                                            Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 16.0,
+                                                    vertical: 8.0,
+                                                  ),
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Row(
                                                     children: [
                                                       const Text(
-                                                        'Destination:',
+                                                        'Group ID: ',
                                                         style: TextStyle(
                                                           fontWeight:
                                                               FontWeight.bold,
                                                         ),
                                                       ),
-                                                      const SizedBox(height: 4),
-                                                      if (group["place_name"] !=
-                                                          null)
-                                                        Padding(
-                                                          padding:
-                                                              const EdgeInsets.only(
-                                                                bottom: 4,
-                                                              ),
-                                                          child: Text(
-                                                            '📍 ${group["place_name"]}',
-                                                            style:
-                                                                const TextStyle(
-                                                                  fontSize: 14,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w600,
-                                                                ),
-                                                          ),
-                                                        ),
-                                                      if (group["address"] !=
-                                                          null)
-                                                        Padding(
-                                                          padding:
-                                                              const EdgeInsets.only(
-                                                                bottom: 4,
-                                                              ),
-                                                          child: Text(
-                                                            group["address"],
-                                                            style: TextStyle(
-                                                              fontSize: 13,
-                                                              color: Colors
-                                                                  .grey[700],
-                                                            ),
-                                                          ),
-                                                        ),
+                                                      Text(
+                                                        group["id"].toString(),
+                                                      ),
                                                     ],
                                                   ),
-                                              ],
+                                                  const SizedBox(height: 8),
+                                                  if (group["dest_coordinates"] !=
+                                                      null)
+                                                    Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        const Text(
+                                                          'Destination:',
+                                                          style: TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                          height: 4,
+                                                        ),
+                                                        if (group["place_name"] !=
+                                                            null)
+                                                          Padding(
+                                                            padding:
+                                                                const EdgeInsets.only(
+                                                                  bottom: 4,
+                                                                ),
+                                                            child: Text(
+                                                              '📍 ${group["place_name"]}',
+                                                              style: const TextStyle(
+                                                                fontSize: 14,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                              ),
+                                                            ),
+                                                          ),
+                                                        if (group["address"] !=
+                                                            null)
+                                                          Padding(
+                                                            padding:
+                                                                const EdgeInsets.only(
+                                                                  bottom: 4,
+                                                                ),
+                                                            child: Text(
+                                                              group["address"],
+                                                              style: TextStyle(
+                                                                fontSize: 13,
+                                                                color: Colors
+                                                                    .grey[700],
+                                                              ),
+                                                            ),
+                                                          ),
+                                                      ],
+                                                    ),
+                                                ],
+                                              ),
                                             ),
-                                          ),
-                                          TextButton(
-                                            onPressed: () {
-                                              // Extract destination coordinates if they exist
-                                              double? destLat;
-                                              double? destLng;
-                                              if (group["dest_coordinates"] !=
-                                                  null) {
-                                                destLat =
-                                                    group["dest_coordinates"]["latitude"];
-                                                destLng =
-                                                    group["dest_coordinates"]["longitude"];
-                                              }
+                                            TextButton(
+                                              onPressed: () {
+                                                // Extract destination coordinates if they exist
+                                                double? destLat;
+                                                double? destLng;
+                                                if (group["dest_coordinates"] !=
+                                                    null) {
+                                                  destLat =
+                                                      group["dest_coordinates"]["latitude"];
+                                                  destLng =
+                                                      group["dest_coordinates"]["longitude"];
+                                                }
 
-                                              // Extract member phone numbers
-                                              List<String> members = [];
-                                              if (group["member_phone_numbers"] !=
-                                                  null) {
-                                                members = List<String>.from(
-                                                  group["member_phone_numbers"],
+                                                // Extract member phone numbers
+                                                List<String> members = [];
+                                                if (group["member_phone_numbers"] !=
+                                                    null) {
+                                                  members = List<String>.from(
+                                                    group["member_phone_numbers"],
+                                                  );
+                                                }
+
+                                                // Extract admin and driver phone numbers
+                                                final adminPhone =
+                                                    group["admin_phone_number"]
+                                                        as String?;
+                                                final driverPhone =
+                                                    group["driver_phone_number"]
+                                                        as String?;
+
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) =>
+                                                        GroupDetailsPage(
+                                                          groupName:
+                                                              group["name"],
+                                                          groupId: group["id"],
+                                                          destinationLatitude:
+                                                              destLat,
+                                                          destinationLongitude:
+                                                              destLng,
+                                                          placeName:
+                                                              group["place_name"],
+                                                          address:
+                                                              group["address"],
+                                                          isAdmin:
+                                                              group["is_admin"] ??
+                                                              false,
+                                                          memberPhoneNumbers:
+                                                              members,
+                                                          adminPhoneNumber:
+                                                              adminPhone,
+                                                          driverPhoneNumber:
+                                                              driverPhone,
+                                                        ),
+                                                  ),
                                                 );
-                                              }
-
-                                              // Extract admin and driver phone numbers
-                                              final adminPhone =
-                                                  group["admin_phone_number"]
-                                                      as String?;
-                                              final driverPhone =
-                                                  group["driver_phone_number"]
-                                                      as String?;
-
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (context) =>
-                                                      GroupDetailsPage(
-                                                        groupName:
-                                                            group["name"],
-                                                        groupId: group["id"],
-                                                        destinationLatitude:
-                                                            destLat,
-                                                        destinationLongitude:
-                                                            destLng,
-                                                        placeName:
-                                                            group["place_name"],
-                                                        address:
-                                                            group["address"],
-                                                        isAdmin:
-                                                            group["is_admin"] ??
-                                                            false,
-                                                        memberPhoneNumbers:
-                                                            members,
-                                                        adminPhoneNumber:
-                                                            adminPhone,
-                                                        driverPhoneNumber:
-                                                            driverPhone,
-                                                      ),
-                                                ),
-                                              );
-                                            },
-                                            child: const Text('View Details'),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  },
+                                              },
+                                              child: const Text('View Details'),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  ),
                                 ),
                         ),
                       ],

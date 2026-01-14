@@ -8,7 +8,7 @@ class TripUpdateData {
   final double latitude;
   final double longitude;
   final DateTime timestamp;
-  final String tripId;
+  final String tripName;
   final int groupId;
   final String? driverName;
 
@@ -17,7 +17,7 @@ class TripUpdateData {
     required this.latitude,
     required this.longitude,
     required this.timestamp,
-    required this.tripId,
+    required this.tripName,
     required this.groupId,
     this.driverName,
   });
@@ -27,7 +27,7 @@ class TripUpdateData {
   factory TripUpdateData.fromFCM(Map<String, dynamic> data) {
     try {
       // Validate required fields
-      if (!data.containsKey('type') || !data.containsKey('trip_id')) {
+      if (!data.containsKey('type') || !data.containsKey('trip_name')) {
         throw FormatException('Missing required fields in FCM data');
       }
 
@@ -84,7 +84,7 @@ class TripUpdateData {
         latitude: lat,
         longitude: lng,
         timestamp: timestamp,
-        tripId: data['trip_id'] as String,
+        tripName: data['trip_name'] as String,
         groupId: groupId,
         driverName: data['driver_name'] as String?,
       );
@@ -121,6 +121,6 @@ class TripUpdateData {
 
   @override
   String toString() {
-    return 'TripUpdateData(event: $eventType, tripId: $tripId, groupId: $groupId, lat: $latitude, lng: $longitude)';
+    return 'TripUpdateData(event: $eventType, tripName: $tripName, groupId: $groupId, lat: $latitude, lng: $longitude)';
   }
 }

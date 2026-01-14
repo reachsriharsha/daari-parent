@@ -20,7 +20,7 @@ class LocationPoint extends HiveObject {
   final double? accuracy;
 
   @HiveField(5)
-  final String tripId;
+  final String tripName; // RENAMED: Use tripName as primary identifier
 
   @HiveField(6)
   final bool isSynced; // For tracking if sent to server
@@ -43,7 +43,7 @@ class LocationPoint extends HiveObject {
     required this.timestamp,
     this.speed,
     this.accuracy,
-    required this.tripId,
+    required this.tripName,
     this.isSynced = false,
     this.tripEventType,
     this.groupId,
@@ -57,7 +57,7 @@ class LocationPoint extends HiveObject {
     'timestamp': timestamp.toIso8601String(),
     'speed': speed,
     'accuracy': accuracy,
-    'tripId': tripId,
+    'tripName': tripName,
     'tripEventType': tripEventType,
     'groupId': groupId,
     'source': source,

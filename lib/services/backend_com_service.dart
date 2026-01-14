@@ -115,6 +115,8 @@ class BackendComService {
     required int groupId,
     required double latitude,
     required double longitude,
+    String? placeName,
+    String? address,
     void Function(String log)? onLog,
   }) async {
     final url = Uri.parse("$baseUrl/api/groups/update");
@@ -122,6 +124,8 @@ class BackendComService {
     final body = {
       "group_id": groupId,
       "coordinates": {"latitude": latitude, "longitude": longitude},
+      if (placeName != null) "place_name": placeName,
+      if (address != null) "address": address,
     };
 
     final logBuffer = StringBuffer()
@@ -157,11 +161,11 @@ class BackendComService {
   Future<Map<String, dynamic>> sendGroupCreateRequestToBackEnd({
     required String idToken,
     required String name,
-    required int profId,
+    required String profId,
     required List<String> members,
     void Function(String log)? onLog,
   }) async {
-    final url = Uri.parse("$baseUrl/apireate");
+    final url = Uri.parse("$baseUrl/api/groups/create");
 
     final body = {
       "name": name,
@@ -307,6 +311,98 @@ class BackendComService {
     } catch (e) {
       logger.error("[ERROR] Error uploading diagnostics: $e");
       rethrow;
+    }
+  }
+
+  /// Assign driver to a group
+  Future<Map<String, dynamic>> assignDriver({
+    required int groupId,
+    required String driverPhoneNumber,
+  }) async {
+    if (_baseUrl == null || _baseUrl!.isEmpty) {
+      showMessageInStatus("error", "Backend URL is not set");
+      throw Exception("Backend URL is not set");
+    }
+
+    final idToken = storageService.getIdToken();
+    if (idToken == null) {
+      showMessageInStatus("error", "Session expired. Please login again.");
+      throw Exception("Session expired. Please login again.");
+    }
+
+    final url = Uri.parse("$_baseUrl/api/groups/update");
+
+    final body = {"group_id": groupId, "driver_assign": driverPhoneNumber};
+
+    logger.debug("[API Request] POST $url Body: ${jsonEncode(body)}");
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          "Authorization": "Bearer $idToken",
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode(body),
+      );
+
+      logger.debug(
+        "[API Response Status] ${response.statusCode} Body: ${response.body}",
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // Update Hive storage to keep it in sync
+        await _updateDriverInHive(groupId, driverPhoneNumber);
+
+        showMessageInStatus("success", "Driver assigned successfully");
+        return jsonDecode(response.body);
+      } else if (response.statusCode == 401) {
+        logger.error('[ERROR] Unauthorized (401) - Clearing session');
+        await storageService.clearSession();
+        showMessageInStatus("error", "Session expired. Please login again.");
+        throw Exception('Session expired. Please login again.');
+      } else {
+        showMessageInStatus("error", "Failed to assign driver");
+        logger.error(
+          "Failed to assign driver: ${response.statusCode} ${response.body}",
+        );
+        throw Exception(
+          "Failed to assign driver: ${response.statusCode} ${response.body}",
+        );
+      }
+    } catch (e, stackTrace) {
+      logger.error(
+        '[ERROR] Exception during driver assignment: $e',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      showMessageInStatus("error", "Failed to assign driver");
+      rethrow;
+    }
+  }
+
+  /// Update driver in Hive (private helper)
+  Future<void> _updateDriverInHive(int groupId, String driverPhone) async {
+    try {
+      final group = await storageService.getGroup(groupId);
+      if (group != null) {
+        group.driverPhoneNumber = driverPhone;
+        await storageService.saveGroup(group);
+        logger.debug(
+          '[HIVE] Updated driver in Hive: ${group.groupName} - Driver: $driverPhone',
+        );
+      } else {
+        logger.warning(
+          '[WARNING] Group $groupId not found in Hive, skipping driver update',
+        );
+      }
+    } catch (e, stackTrace) {
+      logger.error(
+        '[ERROR] Failed to update driver in Hive: $e',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      // Don't rethrow - Hive update failure shouldn't block the operation
     }
   }
 }

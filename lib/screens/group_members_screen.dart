@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../services/backend_com_service.dart';
 
 /// Screen to display group members
-class GroupMembersScreen extends StatelessWidget {
+class GroupMembersScreen extends StatefulWidget {
   final String groupName;
   final int groupId;
   final bool isAdmin;
@@ -19,6 +21,95 @@ class GroupMembersScreen extends StatelessWidget {
     this.currentDriverPhone,
   });
 
+  @override
+  State<GroupMembersScreen> createState() => _GroupMembersScreenState();
+}
+
+class _GroupMembersScreenState extends State<GroupMembersScreen> {
+  String? _currentDriverPhone;
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentDriverPhone = widget.currentDriverPhone;
+  }
+
+  /// Check if current user can assign driver (admin only)
+  bool _canAssignDriver() {
+    return widget.isAdmin;
+  }
+
+  /// Assign driver to the group
+  Future<void> _assignDriver(String phoneNumber) async {
+    try {
+      setState(() => _isLoading = true);
+
+      await BackendComService.instance.assignDriver(
+        groupId: widget.groupId,
+        driverPhoneNumber: phoneNumber,
+      );
+
+      setState(() {
+        _currentDriverPhone = phoneNumber;
+        _isLoading = false;
+      });
+
+      // Success message shown by BackendComService via showMessageInStatus()
+    } catch (e) {
+      setState(() => _isLoading = false);
+
+      // Error message already shown by BackendComService
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to assign driver')),
+        );
+      }
+    }
+  }
+
+  /// Show confirmation dialog before assigning driver
+  void _confirmAssignDriver(String phoneNumber) {
+    final isReplacing = _currentDriverPhone != null;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Set as Driver'),
+        content: Text(
+          isReplacing
+              ? 'Assign $phoneNumber as the new driver?\n\nThis will replace the current driver.'
+              : 'Assign $phoneNumber as the driver for this group?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _assignDriver(phoneNumber);
+            },
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Copy phone number to clipboard
+  void _copyPhoneNumber(BuildContext context, String phoneNumber) {
+    Clipboard.setData(ClipboardData(text: phoneNumber));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Copied: $phoneNumber'),
+        duration: const Duration(seconds: 2),
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
+  }
+
   /// Normalize phone number for comparison (handles format variations)
   String _normalizePhoneNumber(String? phone) {
     if (phone == null) return '';
@@ -28,16 +119,16 @@ class GroupMembersScreen extends StatelessWidget {
 
   /// Check if a phone number matches admin
   bool _isAdminPhone(String phoneNumber) {
-    if (adminPhoneNumber == null) return false;
+    if (widget.adminPhoneNumber == null) return false;
     return _normalizePhoneNumber(phoneNumber) ==
-        _normalizePhoneNumber(adminPhoneNumber);
+        _normalizePhoneNumber(widget.adminPhoneNumber);
   }
 
   /// Check if a phone number matches driver
   bool _isDriverPhone(String phoneNumber) {
-    if (currentDriverPhone == null) return false;
+    if (_currentDriverPhone == null) return false;
     return _normalizePhoneNumber(phoneNumber) ==
-        _normalizePhoneNumber(currentDriverPhone);
+        _normalizePhoneNumber(_currentDriverPhone);
   }
 
   /// Get the role description for a member
@@ -51,9 +142,9 @@ class GroupMembersScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final members = memberPhoneNumbers ?? [];
+    final members = widget.memberPhoneNumbers ?? [];
     return Scaffold(
-      appBar: AppBar(title: Text('$groupName Members')),
+      appBar: AppBar(title: Text('${widget.groupName} Members')),
       body: members.isEmpty
           ? const Center(
               child: Text(
@@ -79,7 +170,7 @@ class GroupMembersScreen extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      if (isAdmin) ...[
+                      if (widget.isAdmin) ...[
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -206,11 +297,57 @@ class GroupMembersScreen extends StatelessWidget {
                             color: Colors.grey[600],
                           ),
                         ),
-                        trailing: Icon(Icons.phone, color: Colors.grey[400]),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            // Copy button
+                            IconButton(
+                              icon: const Icon(Icons.copy, size: 20),
+                              color: Colors.grey[600],
+                              tooltip: 'Copy phone number',
+                              onPressed: () {
+                                _copyPhoneNumber(context, phoneNumber);
+                              },
+                            ),
+                            // Three-dot menu (admin only)
+                            if (_canAssignDriver())
+                              PopupMenuButton<String>(
+                                icon: Icon(
+                                  Icons.more_vert,
+                                  color: Colors.grey[600],
+                                ),
+                                tooltip: 'More options',
+                                enabled: !_isLoading,
+                                onSelected: (value) {
+                                  if (value == 'set_driver') {
+                                    _confirmAssignDriver(phoneNumber);
+                                  }
+                                },
+                                itemBuilder: (context) => [
+                                  PopupMenuItem(
+                                    value: 'set_driver',
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.drive_eta,
+                                          size: 20,
+                                          color: Colors.deepOrange[700],
+                                        ),
+                                        const SizedBox(width: 12),
+                                        const Text('Set as Driver'),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                          ],
+                        ),
                       );
                     },
                   ),
                 ),
+                // Loading indicator
+                if (_isLoading) const LinearProgressIndicator(),
               ],
             ),
     );

@@ -54,6 +54,14 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
 
+  // Temporary selection state (before "Set Destination" is clicked)
+  String? _selectedPlaceName;
+  String? _selectedAddress;
+
+  // Current destination state (for display)
+  String? _destinationPlaceName;
+  String? _destinationAddress;
+
   // Trip viewer controller for remote trip viewing
   late TripViewerController _tripViewerController;
 
@@ -67,7 +75,7 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
 
   // Helper getters
   bool get _isAdmin => widget.isAdmin;
-  bool get _hasDestination => widget.placeName != null;
+  bool get _hasDestination => _destinationPlaceName != null;
   bool get _hasHomeAddress => _homePlaceName != null;
 
   @override
@@ -95,6 +103,10 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
 
     _initializeDestination();
     _loadHomeAddress();
+
+    // Initialize destination state from widget properties
+    _destinationPlaceName = widget.placeName;
+    _destinationAddress = widget.address;
   }
 
   /// Load home address from storage
@@ -216,11 +228,20 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
   }
 
   /// Handle place selection from search
-  Future<void> _handlePlaceSelected(LatLng location, String placeName) async {
+  Future<void> _handlePlaceSelected(
+    LatLng location,
+    String placeName,
+    String address,
+  ) async {
     logger.debug('[MAP] Place selected: $placeName at $location');
+    logger.debug('[MAP] Address: $address');
 
-    // Set the picked location
-    _pickedLocation = location;
+    // Store the selected place details temporarily
+    setState(() {
+      _pickedLocation = location;
+      _selectedPlaceName = placeName;
+      _selectedAddress = address;
+    });
     _updateMarkers();
 
     // Animate map to the selected location
@@ -230,16 +251,6 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
 
     // Show confirmation message
     _showSnackBar('[MAP] Selected: $placeName');
-
-    // Automatically send coordinates to backend
-    await _sendCoordinatesToBackend();
-
-    // After successful save, exit editing mode
-    if (mounted) {
-      setState(() {
-        _isEditingDestination = false;
-      });
-    }
   }
 
   /// Handle home address selection from search
@@ -287,39 +298,13 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
   }
 
   /// Send selected coordinates to backend
-  Future<void> _sendCoordinatesToBackend() async {
-    if (_pickedLocation == null) return;
-
-    try {
-      logger.debug('[API] Sending coordinates to backend...');
-      final result = await _updateGroupAddressInBackend(
-        groupId: widget.groupId,
-        latitude: _pickedLocation!.latitude,
-        longitude: _pickedLocation!.longitude,
-      );
-
-      if (mounted) {
-        logger.debug(
-          '[API] Coordinates sent successfully: ${result['message']}',
-        );
-        // Refresh UI after successful update
-        setState(() {});
-      }
-    } catch (e, stackTrace) {
-      if (mounted) {
-        logger.error(
-          '[API ERROR] Failed to send coordinates: $e Stacktrace: $stackTrace',
-        );
-        _showSnackBar('[API WARNING] Failed to save location to server');
-      }
-    }
-  }
-
   /// Update group address in backend
   Future<Map<String, dynamic>> _updateGroupAddressInBackend({
     required int groupId,
     required double latitude,
     required double longitude,
+    String? placeName,
+    String? address,
   }) async {
     final backendUrl = storageService.getNgrokUrl() ?? "";
     final groupService = GroupService(baseUrl: backendUrl);
@@ -328,6 +313,8 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
       groupId: groupId,
       latitude: latitude,
       longitude: longitude,
+      placeName: placeName,
+      address: address,
       onLog: (log) => logger.debug('[API] $log'),
     );
   }
@@ -357,7 +344,12 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
   /// Handle set address button
   Future<void> _handleSetAddress() async {
     if (_pickedLocation == null) {
-      _showSnackBar('Please tap on the map to pick a location.');
+      _showSnackBar('Please select a location from the search results.');
+      return;
+    }
+
+    if (_selectedPlaceName == null || _selectedAddress == null) {
+      _showSnackBar('Please select a place from the search suggestions.');
       return;
     }
 
@@ -367,17 +359,25 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
         groupId: widget.groupId,
         latitude: _pickedLocation!.latitude,
         longitude: _pickedLocation!.longitude,
+        placeName: _selectedPlaceName,
+        address: _selectedAddress,
       );
 
       if (mounted) {
         _showApiLogsDialog(logs);
-        _showSnackBar(result['message'] ?? 'Address updated!');
-        setState(() {});
+        _showSnackBar(result['message'] ?? 'Destination updated successfully!');
+
+        // Update destination state for immediate display
+        setState(() {
+          _destinationPlaceName = _selectedPlaceName;
+          _destinationAddress = _selectedAddress;
+          _isEditingDestination = false;
+        });
       }
     } catch (e) {
       if (mounted) {
         _showApiLogsDialog(logs.isNotEmpty ? logs : e.toString());
-        _showSnackBar("[API ERROR] Failed to update address: $e");
+        _showSnackBar("[API ERROR] Failed to update destination: $e");
       }
     }
   }
@@ -497,12 +497,12 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
               ],
             ),
             // Destination display
-            if (widget.placeName != null) ...[
+            if (_destinationPlaceName != null) ...[
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    '📍 ${widget.placeName}',
+                    '📍 $_destinationPlaceName',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.normal,
@@ -525,11 +525,11 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
                   ],
                 ],
               ),
-              if (widget.address != null)
+              if (_destinationAddress != null)
                 Padding(
                   padding: const EdgeInsets.only(left: 20),
                   child: Text(
-                    widget.address!,
+                    _destinationAddress!,
                     style: const TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w300,

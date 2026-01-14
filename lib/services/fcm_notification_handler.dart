@@ -189,7 +189,7 @@ class FCMNotificationHandler {
       final updateData = TripUpdateData.fromFCM(data);
 
       logger.debug(
-        '[FCM] Trip update parsed: ${updateData.eventType} for trip ${updateData.tripId}',
+        '[FCM] Trip update parsed: ${updateData.eventType} for trip ${updateData.tripName}',
       );
       logger.debug(
         '[FCM] Location: ${updateData.latitude}, ${updateData.longitude}',

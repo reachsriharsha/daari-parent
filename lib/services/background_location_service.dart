@@ -6,7 +6,6 @@ import 'package:flutter_background_service_android/flutter_background_service_an
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:hive/hive.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/location_point.dart';
 import '../models/trip_settings.dart';
 import '../models/app_settings.dart';
@@ -58,18 +57,12 @@ class BackgroundLocationService {
   }
 
   /// Start the background service
-  static Future<void> startService({
-    required int tripId,
-    required int groupId,
-    required String tripName,
-  }) async {
+  /// Trip info is read from Hive TripSettings in the background isolate
+  static Future<void> startService() async {
     final service = FlutterBackgroundService();
 
-    // Store trip info in SharedPreferences for background access
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('bg_trip_id', tripId);
-    await prefs.setInt('bg_group_id', groupId);
-    await prefs.setString('bg_trip_name', tripName);
+    // Background isolate will read trip info from Hive TripSettings box
+    // No parameters needed - TripSettings is the single source of truth
 
     await service.startService();
   }
@@ -99,24 +92,33 @@ class BackgroundLocationService {
 
     final locationBox = await Hive.openBox<LocationPoint>('location_points');
     final appSettingsBox = await Hive.openBox<AppSettings>('app_settings');
+    final tripSettingsBox = await Hive.openBox<TripSettings>('trip_settings');
 
-    // Get trip info from SharedPreferences (only temporary trip data)
-    final prefs = await SharedPreferences.getInstance();
-    final tripId = prefs.getInt('bg_trip_id');
-    final groupId = prefs.getInt('bg_group_id');
-    final tripName = prefs.getString('bg_trip_name');
+    // Get trip info from Hive TripSettings (persistent across app restarts)
+    // tripName is the single source of truth
+    final tripSettings = tripSettingsBox.get('current_trip');
+    final tripName = tripSettings?.currentTripName;
+    final groupId = tripSettings?.currentGroupId;
 
     // Read id_token and ngrok_url from Hive
     final appSettings = appSettingsBox.get('app_config');
     final idToken = appSettings?.idToken;
     final backendUrl = appSettings?.ngrokUrl;
 
-    if (tripId == null || groupId == null) {
+    // Validate trip settings
+    if (tripSettings == null ||
+        !tripSettings.isTripActive ||
+        tripName == null ||
+        tripName.isEmpty ||
+        groupId == null) {
+      logger.info(
+        '[BACKGROUND] Invalid trip settings: tripName=$tripName, groupId=$groupId, stopping service',
+      );
       service.stopSelf();
       return;
     }
 
-    logger.info('[BACKGROUND] Service started for trip $tripId');
+    logger.info('[BACKGROUND] Service started for trip $tripName');
 
     // Setup location tracking
     StreamSubscription<Position>? locationSubscription;
@@ -135,27 +137,26 @@ class BackgroundLocationService {
             '[BACKGROUND] Location update: ${position.latitude}, ${position.longitude}',
           );
 
-          // Save to Hive
+          // Save to Hive with tripName as identifier
           final locationPoint = LocationPoint(
             latitude: position.latitude,
             longitude: position.longitude,
             timestamp: DateTime.now(),
             speed: position.speed,
             accuracy: position.accuracy,
-            tripId: tripId.toString(),
+            tripName: tripName,
             tripEventType: "update",
             groupId: groupId.toString(),
             isSynced: false,
           );
 
           try {
-            await locationBox.add(locationPoint);
-            logger.info('[BACKGROUND] Saved to Hive');
+            final key = await locationBox.add(locationPoint);
+            logger.info('[BACKGROUND] Saved to Hive (key: $key)');
 
             // Try to sync to backend
-            if (idToken != null && backendUrl != null && tripName != null) {
+            if (idToken != null && backendUrl != null) {
               await _sendLocationToBackend(
-                tripId: tripId,
                 groupId: groupId,
                 latitude: position.latitude,
                 longitude: position.longitude,
@@ -165,23 +166,20 @@ class BackgroundLocationService {
               );
 
               // Mark as synced
-              final key = locationPoint.key;
-              if (key != null) {
-                final savedPoint = locationBox.get(key);
-                if (savedPoint != null) {
-                  final updatedPoint = LocationPoint(
-                    latitude: savedPoint.latitude,
-                    longitude: savedPoint.longitude,
-                    timestamp: savedPoint.timestamp,
-                    speed: savedPoint.speed,
-                    accuracy: savedPoint.accuracy,
-                    tripId: savedPoint.tripId,
-                    tripEventType: savedPoint.tripEventType,
-                    groupId: savedPoint.groupId,
-                    isSynced: true,
-                  );
-                  await locationBox.put(key, updatedPoint);
-                }
+              final savedPoint = locationBox.get(key);
+              if (savedPoint != null) {
+                final updatedPoint = LocationPoint(
+                  latitude: savedPoint.latitude,
+                  longitude: savedPoint.longitude,
+                  timestamp: savedPoint.timestamp,
+                  speed: savedPoint.speed,
+                  accuracy: savedPoint.accuracy,
+                  tripName: savedPoint.tripName,
+                  tripEventType: savedPoint.tripEventType,
+                  groupId: savedPoint.groupId,
+                  isSynced: true,
+                );
+                await locationBox.put(key, updatedPoint);
               }
               logger.info('[BACKGROUND] Synced to backend');
             }
@@ -225,8 +223,8 @@ class BackgroundLocationService {
   }
 
   /// Send location to backend (isolated function for background)
+  /// tripName is the single source of truth identifier
   static Future<void> _sendLocationToBackend({
-    required int tripId,
     required int groupId,
     required double latitude,
     required double longitude,
@@ -237,7 +235,6 @@ class BackgroundLocationService {
     final url = Uri.parse("$backendUrl/api/groups/trip/update");
 
     final body = {
-      "trip_id": tripId,
       "group_id": groupId,
       "trip_name": tripName,
       "trip_event": "update",

@@ -7,53 +7,52 @@ class TripSettings extends HiveObject {
   @HiveField(0)
   bool isTripActive;
 
-  @HiveField(1)
-  int? currentTripId;
+  // @HiveField(1) - DEPRECATED: currentTripId removed
+  // Keep field index reserved to maintain Hive compatibility
+  // DO NOT reuse index 1 for new fields
 
   @HiveField(2)
   int? currentGroupId;
 
   @HiveField(3)
-  String? currentTripName;
+  String? currentTripName; // PRIMARY IDENTIFIER - Single source of truth
 
   @HiveField(4)
   DateTime? tripStartTime;
 
   @HiveField(5)
-  String? watchingTripId; // Remote trip being watched (parent app)
+  String? watchingTripName; // RENAMED: Remote trip being watched (parent app)
 
   @HiveField(6)
   int? watchingGroupId; // Group ID for watched trip
 
   TripSettings({
     this.isTripActive = false,
-    this.currentTripId,
     this.currentGroupId,
     this.currentTripName,
     this.tripStartTime,
-    this.watchingTripId,
+    this.watchingTripName,
     this.watchingGroupId,
   });
 
   // Helper method to clear trip data
   void clear() {
     isTripActive = false;
-    currentTripId = null;
     currentGroupId = null;
     currentTripName = null;
     tripStartTime = null;
-    watchingTripId = null;
+    watchingTripName = null;
     watchingGroupId = null;
   }
 
   // Helper method to clear only watching data
   void clearWatching() {
-    watchingTripId = null;
+    watchingTripName = null;
     watchingGroupId = null;
   }
 
   @override
   String toString() {
-    return 'TripSettings(active: $isTripActive, tripId: $currentTripId, groupId: $currentGroupId, name: $currentTripName, watching: $watchingTripId)';
+    return 'TripSettings(active: $isTripActive, groupId: $currentGroupId, name: $currentTripName, watching: $watchingTripName)';
   }
 }

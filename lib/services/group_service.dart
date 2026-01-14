@@ -18,6 +18,8 @@ class GroupService {
     required int groupId,
     required double latitude,
     required double longitude,
+    String? placeName,
+    String? address,
     void Function(String log)? onLog,
   }) async {
     final idToken = storageService.getIdToken();
@@ -32,11 +34,19 @@ class GroupService {
           groupId: groupId,
           latitude: latitude,
           longitude: longitude,
+          placeName: placeName,
+          address: address,
           onLog: onLog,
         );
 
     // Update Hive storage after successful backend update
-    await _updateGroupInHive(groupId, latitude, longitude);
+    await _updateGroupInHive(
+      groupId,
+      latitude,
+      longitude,
+      placeName: placeName,
+      address: address,
+    );
 
     return responseData;
   }
@@ -56,17 +66,17 @@ class GroupService {
       throw Exception('Profile ID not found. Please login again.');
     }
 
-    final profId = int.tryParse(profIdString);
+    /*final profId = int.tryParse(profIdString);
     if (profId == null) {
       throw Exception('Invalid profile ID format. Please login again.');
-    }
+    }*/
 
     // Use backend service for communication
     final responseData = await BackendComService.instance
         .sendGroupCreateRequestToBackEnd(
           idToken: idToken,
           name: name,
-          profId: profId,
+          profId: profIdString,
           members: members,
         );
 
