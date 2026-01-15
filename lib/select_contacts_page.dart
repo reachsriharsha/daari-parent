@@ -189,7 +189,7 @@ class _SelectContactsPageState extends State<SelectContactsPage> {
                       final filteredContacts = contactsWithPhones.where((
                         contact,
                       ) {
-                        final name = contact.displayName.toLowerCase() ?? '';
+                        final name = contact.displayName.toLowerCase();
                         final phone = contact.phones.first.number.replaceAll(
                           RegExp(r'[^\d+]'),
                           '',
@@ -211,7 +211,7 @@ class _SelectContactsPageState extends State<SelectContactsPage> {
                           final isSelected = selectedContacts.contains(contact);
                           final phone = contact.phones.first.number;
                           return ListTile(
-                            title: Text(contact.displayName ?? ''),
+                            title: Text(contact.displayName),
                             subtitle: Text(phone),
                             trailing: isSelected
                                 ? const Icon(Icons.check_box)
@@ -231,9 +231,7 @@ class _SelectContactsPageState extends State<SelectContactsPage> {
             : () {
                 final memberPhones = selectedContacts
                     .map(
-                      (c) => c.phones.isNotEmpty
-                          ? c.phones.first.number ?? ''
-                          : '',
+                      (c) => c.phones.isNotEmpty ? c.phones.first.number : '',
                     )
                     .where((phone) => phone.isNotEmpty)
                     .toList();

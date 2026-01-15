@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import '../utils/app_logger.dart';
 
 /// Model for trip update data received from FCM notifications

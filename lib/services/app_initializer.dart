@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'location_storage_service.dart';
@@ -6,7 +5,6 @@ import 'backend_com_service.dart';
 import 'fcm_service.dart';
 import 'fcm_notification_handler.dart';
 import 'announcement_service.dart';
-import '../controllers/trip_controller.dart';
 import '../utils/app_logger.dart';
 
 /// Centralized service initializer
@@ -32,10 +30,7 @@ class AppInitializer {
       // 3. Initialize FCM Service
       await _initializeFCM();
 
-      // 4. Initialize Background Location Service
-      await _initializeBackgroundLocation();
-
-      // 5. Initialize TTS Announcement Service
+      // 4. Initialize TTS Announcement Service
       await _initializeAnnouncement();
 
       logger.info('[APP INIT] All services initialized successfully');
@@ -112,20 +107,6 @@ class AppInitializer {
     } catch (e) {
       logger.error('[APP INIT ERROR] FCM initialization failed: $e');
       // Don't rethrow - app can work without FCM
-    }
-  }
-
-  /// Initialize Background Location Service
-  static Future<void> _initializeBackgroundLocation() async {
-    try {
-      logger.info('[APP INIT] Initializing background location service...');
-      await TripController.initializeBackgroundService();
-      logger.info('[APP INIT] Background location service initialized');
-    } catch (e) {
-      logger.error(
-        '[APP INIT ERROR] Background location initialization failed: $e',
-      );
-      // Don't rethrow - app can work without background location
     }
   }
 

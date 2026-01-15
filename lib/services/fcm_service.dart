@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'location_storage_service.dart';
 import 'fcm_notification_handler.dart';
