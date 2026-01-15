@@ -70,10 +70,13 @@ dependencies:
   # Diagnostic packages
   archive: ^3.4.0
   device_info_plus: ^9.1.0
-  package_info_plus: ^4.2.0
+  package_info_plus: ^8.0.0
 
   # Text-to-Speech for announcements
   flutter_tts: ^3.8.5
+
+  # Keep screen on during trip tracking
+  wakelock_plus: ^1.2.8
 
 dev_dependencies:
   flutter_test:

@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 
 import '../constants.dart';
 import '../models/location_point.dart';
@@ -93,6 +94,10 @@ class TripViewerController extends ChangeNotifier {
 
       // Move camera to start location
       _moveCameraToLocation(startLocation, zoom: 15);
+
+      // Enable wakelock to keep screen on while tracking trip
+      await WakelockPlus.enable();
+      logger.info('[WAKELOCK] Screen wakelock enabled for trip tracking');
 
       notifyListeners();
 
@@ -191,6 +196,10 @@ class TripViewerController extends ChangeNotifier {
       // Fit camera to show entire path
       _fitCameraToPath();
 
+      // Disable wakelock - allow screen to lock normally
+      await WakelockPlus.disable();
+      logger.info('[WAKELOCK] Screen wakelock disabled');
+
       notifyListeners();
 
       logger.info(
@@ -265,6 +274,9 @@ class TripViewerController extends ChangeNotifier {
       // Position camera to show current state
       if (_viewingState.isTripActive) {
         _moveCameraToLocation(pathPoints.last, zoom: 15);
+        // Enable wakelock for active trip
+        await WakelockPlus.enable();
+        logger.info('[WAKELOCK] Screen wakelock enabled for loaded active trip');
       } else {
         _fitCameraToPath();
       }
@@ -460,11 +472,13 @@ class TripViewerController extends ChangeNotifier {
   }
 
   /// Clear all trip data and reset state
-  void clearTrip() {
+  Future<void> clearTrip() async {
     _viewingState = TripViewingState.empty();
     _markers.clear();
     _polylines.clear();
     statusNotifier.value = null;
+    // Disable wakelock when clearing trip
+    await WakelockPlus.disable();
     notifyListeners();
     logger.info('[VIEWER] Trip data cleared');
   }
