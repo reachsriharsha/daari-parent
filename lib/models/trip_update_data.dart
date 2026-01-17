@@ -9,6 +9,7 @@ class TripUpdateData {
   final DateTime timestamp;
   final String tripName;
   final int groupId;
+  final String? groupName;
   final String? driverName;
 
   TripUpdateData({
@@ -18,6 +19,7 @@ class TripUpdateData {
     required this.timestamp,
     required this.tripName,
     required this.groupId,
+    this.groupName,
     this.driverName,
   });
 
@@ -85,6 +87,7 @@ class TripUpdateData {
         timestamp: timestamp,
         tripName: data['trip_name'] as String,
         groupId: groupId,
+        groupName: data['group_name'] as String?,
         driverName: data['driver_name'] as String?,
       );
     } catch (e, stackTrace) {
@@ -120,6 +123,6 @@ class TripUpdateData {
 
   @override
   String toString() {
-    return 'TripUpdateData(event: $eventType, tripName: $tripName, groupId: $groupId, lat: $latitude, lng: $longitude)';
+    return 'TripUpdateData(event: $eventType, tripName: $tripName, groupId: $groupId, groupName: $groupName, lat: $latitude, lng: $longitude)';
   }
 }

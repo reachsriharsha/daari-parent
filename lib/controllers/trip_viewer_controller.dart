@@ -50,6 +50,9 @@ class TripViewerController extends ChangeNotifier {
   // Cached destination for the current group
   LatLng? _groupDestination;
 
+  // Cached group name for announcements
+  String? _groupName;
+
   TripViewerController({
     required LocationStorageService storageService,
     required this.groupId,
@@ -71,6 +74,9 @@ class TripViewerController extends ChangeNotifier {
   Future<void> handleTripStart(TripUpdateData data) async {
     try {
       logger.info('[VIEWER] Handling trip start: ${data.tripName}');
+
+      // Load group name from Hive storage (FCM doesn't include it to reduce payload)
+      await _loadGroupName(data.groupId);
 
       // Reset proximity announcement flags for new trip
       _announced1km = false;
@@ -256,8 +262,9 @@ class TripViewerController extends ChangeNotifier {
         '[VIEWER] Found active trip: $tripName with ${fcmPoints.length} points for group $groupId',
       );
 
-      // Load group destination
+      // Load group destination and name
       await _loadGroupDestination(groupId);
+      await _loadGroupName(groupId);
 
       // Rebuild viewing state
       final pathPoints = fcmPoints
@@ -527,27 +534,28 @@ class TripViewerController extends ChangeNotifier {
 
       // 3. Check thresholds (descending order - larger first)
       // This ensures all applicable announcements trigger if driver goes from >1km to <100m in one update
+      final groupLabel = _groupName ?? 'your group';
 
       if (distance <= PROXIMITY_THRESHOLD_1KM && !_announced1km) {
-        await announcementService.announce('1 kilometer from home');
+        await announcementService.announce('$groupLabel: 1 kilometer from home');
         _announced1km = true;
         logger.info('[PROXIMITY] ✅ Announced 1km threshold');
       }
 
       if (distance <= PROXIMITY_THRESHOLD_500M && !_announced500m) {
-        await announcementService.announce('500 meters from home');
+        await announcementService.announce('$groupLabel: 500 meters from home');
         _announced500m = true;
         logger.info('[PROXIMITY] ✅ Announced 500m threshold');
       }
 
       if (distance <= PROXIMITY_THRESHOLD_200M && !_announced200m) {
-        await announcementService.announce('200 meters from home');
+        await announcementService.announce('$groupLabel: 200 meters from home');
         _announced200m = true;
         logger.info('[PROXIMITY] ✅ Announced 200m threshold');
       }
 
       if (distance <= PROXIMITY_THRESHOLD_100M && !_announced100m) {
-        await announcementService.announce('100 meters from home');
+        await announcementService.announce('$groupLabel: 100 meters from home');
         _announced100m = true;
         logger.info('[PROXIMITY] ✅ Announced 100m threshold');
       }
@@ -578,33 +586,34 @@ class TripViewerController extends ChangeNotifier {
       );
 
       // 3. Check thresholds (descending order)
+      final groupLabel = _groupName ?? 'your group';
 
       if (distance <= PROXIMITY_THRESHOLD_1KM && !_announcedDest1km) {
-        await announcementService.announce('1 kilometer from destination');
+        await announcementService.announce('$groupLabel: 1 kilometer from destination');
         _announcedDest1km = true;
         logger.info('[PROXIMITY] ✅ Announced 1km from destination');
       }
 
       if (distance <= PROXIMITY_THRESHOLD_500M && !_announcedDest500m) {
-        await announcementService.announce('500 meters from destination');
+        await announcementService.announce('$groupLabel: 500 meters from destination');
         _announcedDest500m = true;
         logger.info('[PROXIMITY] ✅ Announced 500m from destination');
       }
 
       if (distance <= PROXIMITY_THRESHOLD_200M && !_announcedDest200m) {
-        await announcementService.announce('200 meters from destination');
+        await announcementService.announce('$groupLabel: 200 meters from destination');
         _announcedDest200m = true;
         logger.info('[PROXIMITY] ✅ Announced 200m from destination');
       }
 
       if (distance <= PROXIMITY_THRESHOLD_100M && !_announcedDest100m) {
-        await announcementService.announce('100 meters from destination');
+        await announcementService.announce('$groupLabel: 100 meters from destination');
         _announcedDest100m = true;
         logger.info('[PROXIMITY] ✅ Announced 100m from destination');
       }
 
       if (distance <= PROXIMITY_THRESHOLD_50M && !_announcedDestReached) {
-        await announcementService.announce('Destination reached');
+        await announcementService.announce('$groupLabel: Destination reached');
         _announcedDestReached = true;
         logger.info('[PROXIMITY] ✅ Announced destination reached');
       }
@@ -632,6 +641,19 @@ class TripViewerController extends ChangeNotifier {
       }
     } catch (e) {
       logger.error('[VIEWER ERROR] Failed to load group destination: $e');
+    }
+  }
+
+  /// Load group name for announcements
+  Future<void> _loadGroupName(int groupId) async {
+    try {
+      final group = await _storageService.getGroup(groupId);
+      if (group != null) {
+        _groupName = group.groupName;
+        logger.info('[VIEWER] Loaded group name: $_groupName');
+      }
+    } catch (e) {
+      logger.error('[VIEWER ERROR] Failed to load group name: $e');
     }
   }
 

@@ -51,9 +51,9 @@ class FCMNotificationHandler {
           // Update UI if on GroupDetailsPage
           _updateTripUI(data);
 
-          // Announce trip start
-          final groupName = data['group_name'] as String? ?? 'your group';
-          await announcementService.announce('Trip started for $groupName');
+          // Announce trip start - load group name from Hive (not in FCM to reduce payload)
+          final startGroupName = await _getGroupNameFromStorage(data['group_id']);
+          await announcementService.announce('Trip started for $startGroupName');
           break;
 
         case 'trip_updated':
@@ -75,8 +75,9 @@ class FCMNotificationHandler {
           // Update UI
           _updateTripUI(data);
 
-          // Announce trip end
-          await announcementService.announce('Trip Ended');
+          // Announce trip end - load group name from Hive (not in FCM to reduce payload)
+          final endGroupName = await _getGroupNameFromStorage(data['group_id']);
+          await announcementService.announce('Trip ended for $endGroupName');
           break;
 
         default:
@@ -243,6 +244,36 @@ class FCMNotificationHandler {
     } catch (e) {
       logger.error('[FCM ERROR] Error updating trip UI: $e');
       showMessageInStatus('error', 'Failed to process trip update');
+    }
+  }
+
+  /// Get group name from Hive storage using group ID
+  /// Falls back to 'your group' if not found
+  static Future<String> _getGroupNameFromStorage(dynamic groupIdValue) async {
+    try {
+      int? groupId;
+      if (groupIdValue is int) {
+        groupId = groupIdValue;
+      } else if (groupIdValue is String) {
+        groupId = int.tryParse(groupIdValue);
+      }
+
+      if (groupId == null) {
+        logger.warning('[FCM] Invalid group_id for name lookup: $groupIdValue');
+        return 'your group';
+      }
+
+      final group = await storageService.getGroup(groupId);
+      if (group != null && group.groupName.isNotEmpty) {
+        logger.debug('[FCM] Loaded group name from Hive: ${group.groupName}');
+        return group.groupName;
+      }
+
+      logger.warning('[FCM] Group not found in Hive for ID: $groupId');
+      return 'your group';
+    } catch (e) {
+      logger.error('[FCM ERROR] Failed to get group name from storage: $e');
+      return 'your group';
     }
   }
 
