@@ -34,11 +34,21 @@ class TripViewerController extends ChangeNotifier {
   // Map controller for camera control
   GoogleMapController? _mapController;
 
-  // Proximity announcement state
+  // Proximity announcement state (Home)
   bool _announced1km = false;
   bool _announced500m = false;
   bool _announced200m = false;
   bool _announced100m = false;
+
+  // Proximity announcement state (Destination)
+  bool _announcedDest1km = false;
+  bool _announcedDest500m = false;
+  bool _announcedDest200m = false;
+  bool _announcedDest100m = false;
+  bool _announcedDestReached = false; // < 50m
+
+  // Cached destination for the current group
+  LatLng? _groupDestination;
 
   TripViewerController({
     required LocationStorageService storageService,
@@ -68,6 +78,14 @@ class TripViewerController extends ChangeNotifier {
       _announced200m = false;
       _announced100m = false;
 
+      // Reset destination proximity flags
+      _announcedDest1km = false;
+      _announcedDest500m = false;
+      _announcedDest200m = false;
+      _announcedDest100m = false;
+      _announcedDestReached = false;
+      _groupDestination = null;
+
       final startLocation = LatLng(data.latitude, data.longitude);
 
       // Create new viewing state
@@ -83,6 +101,9 @@ class TripViewerController extends ChangeNotifier {
 
       // Save watching trip to TripSettings
       await _saveWatchingTrip(data.tripName, data.groupId);
+
+      // Load group destination
+      await _loadGroupDestination(data.groupId);
 
       // Update map markers
       _updateMarkers();
@@ -137,6 +158,9 @@ class TripViewerController extends ChangeNotifier {
 
       // Update map visualization
       _updateMarkers();
+      // Check proximity to destination
+      await _checkProximityToDestination(data.latitude, data.longitude);
+
       _updatePolyline();
 
       // Update status widget
@@ -211,35 +235,29 @@ class TripViewerController extends ChangeNotifier {
   }
 
   /// Load active trip on app restart
+  /// Queries LocationPoints directly to support multiple simultaneous trips across groups
   Future<void> loadActiveTrip() async {
     try {
-      logger.info('[VIEWER] Loading active trip...');
+      logger.info('[VIEWER] Loading active trip for group $groupId...');
 
-      // Check TripSettings for watching trip
-      final tripSettings = _storageService.getTripSettings();
-      final watchingTripName = tripSettings?.watchingTripName;
+      // Query LocationPoints directly to find active trip for THIS group
+      // This supports multiple simultaneous trips across different groups
+      final activeTripData = _storageService.findActiveTripForGroup(groupId);
 
-      if (watchingTripName == null) {
-        logger.info('[VIEWER] No active watching trip found');
+      if (activeTripData == null) {
+        logger.info('[VIEWER] No active trip found for group $groupId');
         return;
       }
 
-      logger.info('[VIEWER] Found watching trip: $watchingTripName');
+      final tripName = activeTripData['tripName'] as String;
+      final fcmPoints = activeTripData['points'] as List<LocationPoint>;
 
-      // Load all FCM-received points for this trip
-      final allPoints = _storageService.getLocationPointsByTripName(
-        watchingTripName,
+      logger.info(
+        '[VIEWER] Found active trip: $tripName with ${fcmPoints.length} points for group $groupId',
       );
-      final fcmPoints = allPoints.where((p) => p.source == 'fcm').toList()
-        ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
-      if (fcmPoints.isEmpty) {
-        logger.info('[VIEWER] No FCM points found for trip');
-        await _clearWatchingTrip();
-        return;
-      }
-
-      logger.info('[VIEWER] Loaded ${fcmPoints.length} FCM points');
+      // Load group destination
+      await _loadGroupDestination(groupId);
 
       // Rebuild viewing state
       final pathPoints = fcmPoints
@@ -248,12 +266,12 @@ class TripViewerController extends ChangeNotifier {
       final lastPoint = fcmPoints.last;
 
       _viewingState = TripViewingState(
-        tripName: watchingTripName,
-        groupId: tripSettings?.watchingGroupId ?? groupId,
+        tripName: tripName,
+        groupId: groupId,
         pathPoints: pathPoints,
         tripStartTime: fcmPoints.first.timestamp,
         lastUpdateTime: lastPoint.timestamp,
-        isTripActive: tripSettings?.isTripActive ?? false,
+        isTripActive: true, // We only get here if trip is active
         currentLocation: pathPoints.last,
         lastEventType: lastPoint.tripEventType ?? 'trip_updated',
         lastEventDetails: 'Loaded ${pathPoints.length} points from storage',
@@ -272,14 +290,12 @@ class TripViewerController extends ChangeNotifier {
       );
 
       // Position camera to show current state
-      if (_viewingState.isTripActive) {
-        _moveCameraToLocation(pathPoints.last, zoom: 15);
-        // Enable wakelock for active trip
-        await WakelockPlus.enable();
-        logger.info('[WAKELOCK] Screen wakelock enabled for loaded active trip');
-      } else {
-        _fitCameraToPath();
-      }
+      _moveCameraToLocation(pathPoints.last, zoom: 15);
+      // Enable wakelock for active trip
+      await WakelockPlus.enable();
+      logger.info(
+        '[WAKELOCK] Screen wakelock enabled for loaded active trip',
+      );
 
       notifyListeners();
 
@@ -537,6 +553,85 @@ class TripViewerController extends ChangeNotifier {
       }
     } catch (e) {
       logger.error('[PROXIMITY ERROR] Failed to check proximity: $e');
+    }
+  }
+
+  /// Check proximity to destination and announce when crossing thresholds
+  Future<void> _checkProximityToDestination(
+    double currentLat,
+    double currentLon,
+  ) async {
+    try {
+      // 1. Check if destination is available
+      if (_groupDestination == null) return;
+
+      // 2. Calculate distance using Haversine formula
+      final distance = calculateDistance(
+        lat1: currentLat,
+        lon1: currentLon,
+        lat2: _groupDestination!.latitude,
+        lon2: _groupDestination!.longitude,
+      );
+
+      logger.debug(
+        '[PROXIMITY] Distance to destination: ${distance.toStringAsFixed(0)}m',
+      );
+
+      // 3. Check thresholds (descending order)
+
+      if (distance <= PROXIMITY_THRESHOLD_1KM && !_announcedDest1km) {
+        await announcementService.announce('1 kilometer from destination');
+        _announcedDest1km = true;
+        logger.info('[PROXIMITY] ✅ Announced 1km from destination');
+      }
+
+      if (distance <= PROXIMITY_THRESHOLD_500M && !_announcedDest500m) {
+        await announcementService.announce('500 meters from destination');
+        _announcedDest500m = true;
+        logger.info('[PROXIMITY] ✅ Announced 500m from destination');
+      }
+
+      if (distance <= PROXIMITY_THRESHOLD_200M && !_announcedDest200m) {
+        await announcementService.announce('200 meters from destination');
+        _announcedDest200m = true;
+        logger.info('[PROXIMITY] ✅ Announced 200m from destination');
+      }
+
+      if (distance <= PROXIMITY_THRESHOLD_100M && !_announcedDest100m) {
+        await announcementService.announce('100 meters from destination');
+        _announcedDest100m = true;
+        logger.info('[PROXIMITY] ✅ Announced 100m from destination');
+      }
+
+      if (distance <= PROXIMITY_THRESHOLD_50M && !_announcedDestReached) {
+        await announcementService.announce('Destination reached');
+        _announcedDestReached = true;
+        logger.info('[PROXIMITY] ✅ Announced destination reached');
+      }
+    } catch (e) {
+      logger.error(
+        '[PROXIMITY ERROR] Failed to check destination proximity: $e',
+      );
+    }
+  }
+
+  /// Load group destination coordinates
+  Future<void> _loadGroupDestination(int groupId) async {
+    try {
+      final group = await _storageService.getGroup(groupId);
+      if (group != null &&
+          group.destinationLatitude != 0.0 &&
+          group.destinationLongitude != 0.0) {
+        _groupDestination = LatLng(
+          group.destinationLatitude,
+          group.destinationLongitude,
+        );
+        logger.info('[VIEWER] Loaded group destination: $_groupDestination');
+      } else {
+        _groupDestination = null;
+      }
+    } catch (e) {
+      logger.error('[VIEWER ERROR] Failed to load group destination: $e');
     }
   }
 

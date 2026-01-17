@@ -332,6 +332,62 @@ class LocationStorageService {
     }
   }
 
+  /// Find active trip for a specific group by querying FCM points
+  /// Returns tripName if there's an active trip, null otherwise
+  /// This supports multiple simultaneous trips across different groups
+  Map<String, dynamic>? findActiveTripForGroup(int groupId) {
+    try {
+      final groupIdStr = groupId.toString();
+
+      // Get all FCM points for this group
+      final groupPoints = _locationBox?.values
+          .where((p) => p.source == 'fcm' && p.groupId == groupIdStr)
+          .toList();
+
+      if (groupPoints == null || groupPoints.isEmpty) {
+        logger.debug('[HIVE] No FCM points found for group $groupId');
+        return null;
+      }
+
+      // Sort by timestamp to find the most recent
+      groupPoints.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+      // Get the most recent trip name
+      final mostRecentPoint = groupPoints.first;
+      final tripName = mostRecentPoint.tripName;
+
+      // Get all points for this specific trip
+      final tripPoints = groupPoints
+          .where((p) => p.tripName == tripName)
+          .toList()
+        ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+      // Check if the last event was trip_finished
+      final lastEvent = tripPoints.last.tripEventType;
+      final isActive = lastEvent != 'trip_finished';
+
+      if (!isActive) {
+        logger.debug(
+          '[HIVE] Most recent trip for group $groupId is finished: $tripName',
+        );
+        return null;
+      }
+
+      logger.info(
+        '[HIVE] Found active trip for group $groupId: $tripName with ${tripPoints.length} points',
+      );
+
+      return {
+        'tripName': tripName,
+        'points': tripPoints,
+        'isActive': true,
+      };
+    } catch (e) {
+      logger.error('[HIVE ERROR] Error finding active trip for group: $e');
+      return null;
+    }
+  }
+
   /// Close all boxes (call on app dispose)
   Future<void> close() async {
     await _locationBox?.close();

@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:firebase_core/firebase_core.dart';
 
-import '../main.dart' show tripViewerControllers;
+import '../main.dart' show tripViewerControllers, storageService;
+import '../models/location_point.dart';
 import '../models/trip_update_data.dart';
 import '../widgets/status_widget.dart';
 import '../utils/app_logger.dart';
@@ -181,7 +182,7 @@ class FCMNotificationHandler {
   }
 
   /// Update trip UI with location data from notification
-  static void _updateTripUI(Map<String, dynamic> data) {
+  static Future<void> _updateTripUI(Map<String, dynamic> data) async {
     try {
       logger.debug('[FCM] Updating trip UI with data: $data');
 
@@ -201,8 +202,13 @@ class FCMNotificationHandler {
 
       if (controller == null) {
         logger.warning(
-          '[FCM] No active controller for group ${updateData.groupId}',
+          '[FCM] No active controller for group ${updateData.groupId} - saving to storage for later viewing',
         );
+
+        // Save trip data to Hive even when no controller is active
+        // This allows the data to be loaded when user opens the group later
+        await _saveTripDataWithoutController(updateData);
+
         // Show status message anyway
         showMessageInStatus(
           'info',
@@ -258,6 +264,42 @@ class FCMNotificationHandler {
       logger.error('[FCM ERROR] Error extracting location: $e');
     }
     return null;
+  }
+
+  /// Save trip data directly to Hive when no controller is active
+  /// This ensures trip updates are persisted even when user is not viewing the group
+  /// The data is stored per-group, supporting multiple simultaneous trips
+  static Future<void> _saveTripDataWithoutController(
+    TripUpdateData data,
+  ) async {
+    try {
+      logger.info(
+        '[FCM] Saving trip data without controller: ${data.eventType} for ${data.tripName} (group ${data.groupId})',
+      );
+
+      // Save the location point to Hive with groupId
+      // Each group's trip data is stored separately via groupId field
+      // loadActiveTrip() queries by groupId to find active trips per group
+      final point = LocationPoint(
+        latitude: data.latitude,
+        longitude: data.longitude,
+        timestamp: data.timestamp,
+        tripName: data.tripName,
+        groupId: data.groupId.toString(),
+        tripEventType: data.eventType,
+        source: 'fcm',
+        receivedAt: DateTime.now(),
+        isSynced: true, // FCM points are already from server
+      );
+
+      await storageService.saveLocationPoint(point);
+      logger.info(
+        '[FCM] Saved FCM point to storage: ${data.eventType} at ${data.latitude}, ${data.longitude} for group ${data.groupId}',
+      );
+
+    } catch (e) {
+      logger.error('[FCM ERROR] Failed to save trip data without controller: $e');
+    }
   }
 }
 

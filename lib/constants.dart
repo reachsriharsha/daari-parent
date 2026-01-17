@@ -10,3 +10,6 @@ const double PROXIMITY_THRESHOLD_200M = 200.0;
 
 /// Distance threshold for fourth proximity announcement (meters)
 const double PROXIMITY_THRESHOLD_100M = 100.0;
+
+/// Distance threshold for destination reached announcement (meters)
+const double PROXIMITY_THRESHOLD_50M = 50.0;
