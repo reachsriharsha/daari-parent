@@ -4,6 +4,7 @@ import 'dart:io';
 import '../main.dart'; // To access storageService
 import '../utils/app_logger.dart';
 import '../widgets/status_widget.dart';
+import 'device_info_service.dart';
 
 /// Service class to handle all backend API communications
 class BackendComService {
@@ -41,17 +42,30 @@ class BackendComService {
 
   /// Send Firebase ID token to backend for authentication
   /// Optionally includes FCM token for push notifications
+  /// Includes app info for version tracking (DES-AUTH001)
   Future<Map<String, dynamic>> loginToBackEnd(
     String idToken, {
     String? fcmToken,
   }) async {
     final url = Uri.parse('$baseUrl/auth/login');
 
-    // Build request body
-    final body = <String, dynamic>{'id_token': idToken};
+    // DES-AUTH001: Collect device and app info
+    final deviceInfo = DeviceInfoService();
+    final appVersion = await deviceInfo.getAppVersion();
+    final phoneModel = await deviceInfo.getPhoneModel();
+    final osVersion = await deviceInfo.getOsVersion();
+    final platform = deviceInfo.getPlatform();
+
+    // Build request body with app info (DES-AUTH001)
+    final body = <String, dynamic>{
+      'id_token': idToken,
+      'app_version': appVersion,
+      'phone_model': phoneModel,
+      'os_version': osVersion,
+      'platform': platform,
+    };
     if (fcmToken != null) {
       body['fcm_token'] = fcmToken;
-      body['platform'] = 'android'; // TODO: Detect platform dynamically
     }
 
     logger.debug(
@@ -64,7 +78,12 @@ class BackendComService {
     );
 
     if (response.statusCode == 200) {
-      return jsonDecode(response.body);
+      final responseData = jsonDecode(response.body);
+      // DES-AUTH001: Handle update_required flag
+      if (responseData['update_required'] == true) {
+        logger.warning('[AUTH] App update recommended - current version: $appVersion');
+      }
+      return responseData;
     } else {
       final errorMessage =
           'Backend error: ${response.statusCode} ${response.body}';
