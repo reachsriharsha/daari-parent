@@ -6,6 +6,25 @@ import '../utils/app_logger.dart';
 import '../widgets/status_widget.dart';
 import 'device_info_service.dart';
 
+/// Member entry with optional name fields (DES-GRP002)
+class GroupMemberInput {
+  final String phoneNumber;
+  final String? firstName;
+  final String? lastName;
+
+  GroupMemberInput({
+    required this.phoneNumber,
+    this.firstName,
+    this.lastName,
+  });
+
+  Map<String, dynamic> toJson() => {
+    'member_phone_number': phoneNumber,
+    if (firstName != null && firstName!.isNotEmpty) 'member_first_name': firstName,
+    if (lastName != null && lastName!.isNotEmpty) 'member_last_name': lastName,
+  };
+}
+
 /// Service class to handle all backend API communications
 class BackendComService {
   // Singleton instance
@@ -176,21 +195,34 @@ class BackendComService {
     }
   }
 
-  /// Send group create request to backend
+  /// Send group create request to backend (DES-GRP002: with optional member names)
+  ///
+  /// [members] can be either a List<String> (phone numbers only, backward compatible)
+  /// or a List<GroupMemberInput> (with optional names)
   Future<Map<String, dynamic>> sendGroupCreateRequestToBackEnd({
     required String idToken,
     required String name,
     required String profId,
-    required List<String> members,
+    required List<dynamic> members,
     void Function(String log)? onLog,
   }) async {
     final url = Uri.parse("$baseUrl/api/groups/create");
+
+    // DES-GRP002: Build member_list supporting both formats
+    final memberList = members.map((m) {
+      if (m is GroupMemberInput) {
+        return m.toJson();
+      } else if (m is String) {
+        return {'member_phone_number': m};
+      }
+      return {'member_phone_number': m.toString()};
+    }).toList();
 
     final body = {
       "name": name,
       "prof_id": profId,
       "coordinates": {"latitude": 12.91, "longitude": 77.64},
-      "member_list": members.map((m) => {"member_phone_number": m}).toList(),
+      "member_list": memberList,
     };
 
     final logBuffer = StringBuffer()
