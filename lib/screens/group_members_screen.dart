@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../services/backend_com_service.dart';
+import 'add_members_screen.dart';
 
 /// Screen to display group members
 class GroupMembersScreen extends StatefulWidget {
@@ -140,11 +141,39 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
     return roles.join(' & ');
   }
 
+  /// Navigate to add members screen (DES-GRP003)
+  Future<void> _navigateToAddMembers() async {
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddMembersScreen(
+          groupId: widget.groupId,
+          groupName: widget.groupName,
+        ),
+      ),
+    );
+
+    // Refresh member list if members were added
+    if (result == true && mounted) {
+      // Return to group details with refresh flag
+      Navigator.pop(context, true);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final members = widget.memberPhoneNumbers ?? [];
     return Scaffold(
       appBar: AppBar(title: Text('${widget.groupName} Members')),
+      // Add Members FAB for admins (DES-GRP003)
+      floatingActionButton: widget.isAdmin
+          ? FloatingActionButton.extended(
+              onPressed: _isLoading ? null : _navigateToAddMembers,
+              icon: const Icon(Icons.person_add),
+              label: const Text('Add Members'),
+              backgroundColor: Colors.green,
+            )
+          : null,
       body: members.isEmpty
           ? const Center(
               child: Text(

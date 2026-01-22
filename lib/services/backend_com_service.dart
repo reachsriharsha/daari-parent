@@ -456,4 +456,136 @@ class BackendComService {
       // Don't rethrow - Hive update failure shouldn't block the operation
     }
   }
+
+  /// Add members to an existing group (DES-GRP003)
+  ///
+  /// [groupId] - ID of the group to add members to
+  /// [groupName] - Name of the group (for validation)
+  /// [members] - List of members to add (1-20)
+  ///
+  /// Returns success/failure response
+  Future<Map<String, dynamic>> addGroupMembers({
+    required int groupId,
+    required String groupName,
+    required List<GroupMemberInput> members,
+  }) async {
+    if (_baseUrl == null || _baseUrl!.isEmpty) {
+      showMessageInStatus("error", "Backend URL is not set");
+      throw Exception("Backend URL is not set");
+    }
+
+    // Client-side validation
+    if (members.isEmpty) {
+      showMessageInStatus("error", "At least one member is required");
+      throw ArgumentError('At least one member is required');
+    }
+    if (members.length > 20) {
+      showMessageInStatus("error", "Maximum 20 members can be added at once");
+      throw ArgumentError('Maximum 20 members can be added at once');
+    }
+
+    final idToken = storageService.getIdToken();
+    if (idToken == null) {
+      showMessageInStatus("error", "Session expired. Please login again.");
+      throw Exception("Session expired. Please login again.");
+    }
+
+    final url = Uri.parse("$_baseUrl/api/groups/members/add/");
+
+    final body = {
+      "group_id": groupId,
+      "group_name": groupName,
+      "member_entries": members.map((m) => m.toJson()).toList(),
+    };
+
+    logger.debug("[API Request] POST $url Body: ${jsonEncode(body)}");
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          "Authorization": "Bearer $idToken",
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode(body),
+      );
+
+      logger.debug(
+        "[API Response Status] ${response.statusCode} Body: ${response.body}",
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // Update Hive storage with new members
+        await _updateMembersInHive(groupId, members);
+
+        showMessageInStatus("success", "Members added successfully");
+        return jsonDecode(response.body);
+      } else if (response.statusCode == 401) {
+        logger.error('[ERROR] Unauthorized (401) - Clearing session');
+        await storageService.clearSession();
+        showMessageInStatus("error", "Session expired. Please login again.");
+        throw Exception('Session expired. Please login again.');
+      } else if (response.statusCode == 403) {
+        showMessageInStatus("error", "Only group admins can add members");
+        throw Exception('Only group admins can add members');
+      } else if (response.statusCode == 404) {
+        showMessageInStatus("error", "Group not found");
+        throw Exception('Group not found');
+      } else {
+        showMessageInStatus("error", "Failed to add members");
+        logger.error(
+          "Failed to add members: ${response.statusCode} ${response.body}",
+        );
+        throw Exception(
+          "Failed to add members: ${response.statusCode} ${response.body}",
+        );
+      }
+    } catch (e, stackTrace) {
+      logger.error(
+        '[ERROR] Exception during member addition: $e',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      if (e is! ArgumentError) {
+        showMessageInStatus("error", "Failed to add members");
+      }
+      rethrow;
+    }
+  }
+
+  /// Update members in Hive (private helper for DES-GRP003)
+  Future<void> _updateMembersInHive(
+    int groupId,
+    List<GroupMemberInput> members,
+  ) async {
+    try {
+      final group = await storageService.getGroup(groupId);
+      if (group != null) {
+        // Add new member phone numbers to existing list
+        final existingMembers =
+            List<String>.from(group.memberPhoneNumbers ?? []);
+        for (final member in members) {
+          if (!existingMembers.contains(member.phoneNumber)) {
+            existingMembers.add(member.phoneNumber);
+          }
+        }
+        group.memberPhoneNumbers = existingMembers;
+        await storageService.saveGroup(group);
+        logger.debug(
+          '[HIVE] Updated members in Hive: ${group.groupName} - ${members.length} members added',
+        );
+      } else {
+        logger.warning(
+          '[WARNING] Group $groupId not found in Hive, skipping member update',
+        );
+      }
+    } catch (e, stackTrace) {
+      logger.error(
+        '[ERROR] Failed to update members in Hive: $e',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      // Don't rethrow - Hive update failure shouldn't block the operation
+    }
+  }
 }

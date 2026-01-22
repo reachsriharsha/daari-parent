@@ -18,3 +18,9 @@ flutter pub run build_runner build --delete-conflicting-outputs
 ```bash
 flutter build apk --debug --target-platform android-arm64
 ```
+
+# Only app logs
+
+```bash
+flutter run -d e21a459e 2>&1 | Select-String -Pattern "flutter \(|^\[|Error|Exception" -CaseSensitive
+```

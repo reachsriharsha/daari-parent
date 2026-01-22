@@ -466,9 +466,9 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
   /// Build AppBar title with destination and home info
   Widget _buildAppBarTitle() {
     return GestureDetector(
-      onTap: () {
+      onTap: () async {
         // Navigate to group members screen
-        Navigator.push(
+        final result = await Navigator.push<bool>(
           context,
           MaterialPageRoute(
             builder: (context) => GroupMembersScreen(
@@ -481,6 +481,11 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
             ),
           ),
         );
+        // Refresh group details if members were updated (DES-GRP003)
+        // Since member data is passed from home page, pop back to reload
+        if (result == true && mounted) {
+          Navigator.pop(context, true); // Signal home page to refresh
+        }
       },
       child: SingleChildScrollView(
         child: Column(
