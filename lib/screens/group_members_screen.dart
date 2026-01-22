@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../services/backend_com_service.dart';
 import 'add_members_screen.dart';
 import 'remove_members_screen.dart';
+import 'delete_group_dialog.dart';
 
 /// Screen to display group members
 class GroupMembersScreen extends StatefulWidget {
@@ -193,6 +194,27 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
     // Refresh member list if members were removed
     if (result == true && mounted) {
       Navigator.pop(context, true); // Return to group details with refresh flag
+    }
+  }
+
+  /// Show delete group dialog (DES-GRP005)
+  Future<void> _showDeleteGroupDialog() async {
+    final result = await DeleteGroupDialog.show(
+      context: context,
+      groupId: widget.groupId,
+      groupName: widget.groupName,
+    );
+
+    if (result == true && mounted) {
+      // Group was deleted - navigate back to home
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Group deleted successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+      // Pop all the way back to home/group list
+      Navigator.popUntil(context, (route) => route.isFirst);
     }
   }
 
@@ -429,6 +451,45 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
                 ),
                 // Loading indicator
                 if (_isLoading) const LinearProgressIndicator(),
+
+                // Delete Group section (admin only) - DES-GRP005
+                if (widget.isAdmin) ...[
+                  const Divider(height: 32),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Danger Zone',
+                          style: TextStyle(
+                            color: Colors.red[700],
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _isLoading ? null : _showDeleteGroupDialog,
+                            icon: const Icon(Icons.delete_forever, color: Colors.red),
+                            label: const Text(
+                              'Delete Group',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              side: const BorderSide(color: Colors.red),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 80), // Space for FAB
+                ],
               ],
             ),
     );

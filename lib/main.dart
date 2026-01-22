@@ -49,6 +49,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       logger.debug('[APP LIFECYCLE] App resumed - checking for unsynced data');
       // Trigger bulk sync in TripController if it's active
       // This will be handled by the TripController when it's notified
+
+      // DES-GRP006: Check for pending group refresh
+      FCMNotificationHandler.checkPendingGroupRefresh();
     }
   }
 

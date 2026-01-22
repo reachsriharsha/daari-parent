@@ -8,6 +8,7 @@ import '../models/trip_update_data.dart';
 import '../widgets/status_widget.dart';
 import '../utils/app_logger.dart';
 import 'announcement_service.dart';
+import 'backend_com_service.dart';
 
 /// Global NavigatorKey for navigation from background handlers
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -80,6 +81,11 @@ class FCMNotificationHandler {
           await announcementService.announce('Trip ended for $endGroupName');
           break;
 
+        // DES-GRP006: Handle group refresh notification
+        case 'group_refresh':
+          await _handleGroupRefresh();
+          break;
+
         default:
           logger.warning('[FCM] Unknown notification type: $type');
       }
@@ -105,9 +111,47 @@ class FCMNotificationHandler {
           '[FCM] Trip update in background - data saved for later retrieval',
         );
         // Could save to Hive here for later UI update
+      } else if (type == 'group_refresh') {
+        // DES-GRP006: Handle group refresh in background
+        logger.debug('[FCM] Group refresh in background - will sync on foreground');
+        // Flag for refresh on next foreground - handled by _pendingGroupRefresh
+        _pendingGroupRefresh = true;
       }
     } catch (e) {
       logger.error('[FCM ERROR] Error handling background message: $e');
+    }
+  }
+
+  /// Flag for pending group refresh (DES-GRP006)
+  static bool _pendingGroupRefresh = false;
+
+  /// Handle group refresh notification (DES-GRP006)
+  static Future<void> _handleGroupRefresh() async {
+    logger.info('[FCM] Handling group_refresh notification');
+
+    try {
+      // Call refresh API
+      final response = await BackendComService.instance.refreshGroups();
+
+      if (response['status'] == 'success') {
+        logger.info('[FCM] Group data refreshed successfully');
+        // UI will automatically update since Hive storage was synced
+      } else {
+        logger.warning('[FCM] Group refresh returned non-success status');
+      }
+    } catch (e) {
+      logger.error('[FCM ERROR] Failed to refresh groups: $e');
+      // Flag for retry on next app foreground
+      _pendingGroupRefresh = true;
+    }
+  }
+
+  /// Check and handle pending group refresh (call on app resume) (DES-GRP006)
+  static Future<void> checkPendingGroupRefresh() async {
+    if (_pendingGroupRefresh) {
+      logger.debug('[FCM] Processing pending group refresh');
+      await _handleGroupRefresh();
+      _pendingGroupRefresh = false;
     }
   }
 

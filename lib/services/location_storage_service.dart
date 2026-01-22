@@ -357,10 +357,9 @@ class LocationStorageService {
       final tripName = mostRecentPoint.tripName;
 
       // Get all points for this specific trip
-      final tripPoints = groupPoints
-          .where((p) => p.tripName == tripName)
-          .toList()
-        ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+      final tripPoints =
+          groupPoints.where((p) => p.tripName == tripName).toList()
+            ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
 
       // Check if the last event was trip_finished
       final lastEvent = tripPoints.last.tripEventType;
@@ -377,11 +376,7 @@ class LocationStorageService {
         '[HIVE] Found active trip for group $groupId: $tripName with ${tripPoints.length} points',
       );
 
-      return {
-        'tripName': tripName,
-        'points': tripPoints,
-        'isActive': true,
-      };
+      return {'tripName': tripName, 'points': tripPoints, 'isActive': true};
     } catch (e) {
       logger.error('[HIVE ERROR] Error finding active trip for group: $e');
       return null;
@@ -777,6 +772,21 @@ class LocationStorageService {
     final box = await Hive.openBox<Group>('groups');
     await box.delete(groupId);
     logger.info('[HIVE] Deleted group from Hive: ID $groupId');
+  }
+
+  /// Remove a group from Hive (alias for deleteGroup)
+  Future<void> removeGroup(int groupId) async {
+    await deleteGroup(groupId);
+  }
+
+  /// Create a group from JSON data and save it to Hive
+  Future<Group> createGroupFromJson(Map<String, dynamic> json) async {
+    final group = Group.fromJson(json);
+    await saveGroup(group);
+    logger.info(
+      '[HIVE] Created group from JSON: ${group.groupName} (ID: ${group.groupId})',
+    );
+    return group;
   }
 
   /// Sync groups from backend with local Hive storage
