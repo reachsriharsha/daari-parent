@@ -588,4 +588,144 @@ class BackendComService {
       // Don't rethrow - Hive update failure shouldn't block the operation
     }
   }
+
+  /// Remove members from an existing group (DES-GRP004)
+  ///
+  /// [groupId] - ID of the group to remove members from
+  /// [groupName] - Name of the group (for validation)
+  /// [memberPhoneNumbers] - List of phone numbers to remove (1-20)
+  ///
+  /// Returns success/failure response with status and message
+  Future<Map<String, dynamic>> removeGroupMembers({
+    required int groupId,
+    required String groupName,
+    required List<String> memberPhoneNumbers,
+  }) async {
+    if (_baseUrl == null || _baseUrl!.isEmpty) {
+      showMessageInStatus("error", "Backend URL is not set");
+      throw Exception("Backend URL is not set");
+    }
+
+    // Client-side validation
+    if (memberPhoneNumbers.isEmpty) {
+      showMessageInStatus("error", "At least one member is required");
+      throw ArgumentError('At least one member is required');
+    }
+    if (memberPhoneNumbers.length > 20) {
+      showMessageInStatus("error", "Maximum 20 members can be removed at once");
+      throw ArgumentError('Maximum 20 members can be removed at once');
+    }
+
+    final idToken = storageService.getIdToken();
+    if (idToken == null) {
+      showMessageInStatus("error", "Session expired. Please login again.");
+      throw Exception("Session expired. Please login again.");
+    }
+
+    final url = Uri.parse("$_baseUrl/api/groups/members/remove/");
+
+    final memberEntries = memberPhoneNumbers
+        .map((phone) => {'member_phone_number': phone})
+        .toList();
+
+    final body = {
+      "group_id": groupId,
+      "group_name": groupName,
+      "member_entries": memberEntries,
+    };
+
+    logger.debug("[API Request] POST $url Body: ${jsonEncode(body)}");
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          "Authorization": "Bearer $idToken",
+          "Content-Type": "application/json",
+        },
+        body: jsonEncode(body),
+      );
+
+      logger.debug(
+        "[API Response Status] ${response.statusCode} Body: ${response.body}",
+      );
+
+      final responseData = jsonDecode(response.body);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        // Check if response indicates an error (e.g., self-removal, last member)
+        if (responseData['status'] == 'error') {
+          showMessageInStatus("error", responseData['message'] ?? 'Operation failed');
+          return responseData;
+        }
+
+        // Update Hive storage - remove members
+        await _removeMembersFromHive(groupId, memberPhoneNumbers);
+
+        showMessageInStatus("success", "Members removed successfully");
+        return responseData;
+      } else if (response.statusCode == 401) {
+        logger.error('[ERROR] Unauthorized (401) - Clearing session');
+        await storageService.clearSession();
+        showMessageInStatus("error", "Session expired. Please login again.");
+        throw Exception('Session expired. Please login again.');
+      } else if (response.statusCode == 403) {
+        showMessageInStatus("error", "Only group admins can remove members");
+        throw Exception('Only group admins can remove members');
+      } else if (response.statusCode == 404) {
+        showMessageInStatus("error", "Group not found");
+        throw Exception('Group not found');
+      } else {
+        showMessageInStatus("error", "Failed to remove members");
+        logger.error(
+          "Failed to remove members: ${response.statusCode} ${response.body}",
+        );
+        throw Exception(
+          "Failed to remove members: ${response.statusCode} ${response.body}",
+        );
+      }
+    } catch (e, stackTrace) {
+      logger.error(
+        '[ERROR] Exception during member removal: $e',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      if (e is! ArgumentError) {
+        showMessageInStatus("error", "Failed to remove members");
+      }
+      rethrow;
+    }
+  }
+
+  /// Remove members from Hive (private helper for DES-GRP004)
+  Future<void> _removeMembersFromHive(
+    int groupId,
+    List<String> phoneNumbers,
+  ) async {
+    try {
+      final group = await storageService.getGroup(groupId);
+      if (group != null) {
+        // Remove phone numbers from existing list
+        final existingMembers =
+            List<String>.from(group.memberPhoneNumbers ?? []);
+        existingMembers.removeWhere((phone) => phoneNumbers.contains(phone));
+        group.memberPhoneNumbers = existingMembers;
+        await storageService.saveGroup(group);
+        logger.debug(
+          '[HIVE] Removed members from Hive: ${group.groupName} - ${phoneNumbers.length} members removed',
+        );
+      } else {
+        logger.warning(
+          '[WARNING] Group $groupId not found in Hive, skipping member removal',
+        );
+      }
+    } catch (e, stackTrace) {
+      logger.error(
+        '[ERROR] Failed to remove members from Hive: $e',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      // Don't rethrow - Hive update failure shouldn't block the operation
+    }
+  }
 }

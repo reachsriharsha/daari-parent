@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/backend_com_service.dart';
 import 'add_members_screen.dart';
+import 'remove_members_screen.dart';
 
 /// Screen to display group members
 class GroupMembersScreen extends StatefulWidget {
@@ -160,18 +162,68 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
     }
   }
 
+  /// Navigate to remove members screen (DES-GRP004)
+  Future<void> _navigateToRemoveMembers() async {
+    final currentUserPhone = FirebaseAuth.instance.currentUser?.phoneNumber ?? '';
+    final members = widget.memberPhoneNumbers ?? [];
+
+    if (members.length <= 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Cannot remove members - group has only one member'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => RemoveMembersScreen(
+          groupId: widget.groupId,
+          groupName: widget.groupName,
+          memberPhoneNumbers: members,
+          currentUserPhone: currentUserPhone,
+          adminPhoneNumber: widget.adminPhoneNumber,
+        ),
+      ),
+    );
+
+    // Refresh member list if members were removed
+    if (result == true && mounted) {
+      Navigator.pop(context, true); // Return to group details with refresh flag
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final members = widget.memberPhoneNumbers ?? [];
     return Scaffold(
       appBar: AppBar(title: Text('${widget.groupName} Members')),
-      // Add Members FAB for admins (DES-GRP003)
+      // Admin action buttons (DES-GRP003, DES-GRP004)
       floatingActionButton: widget.isAdmin
-          ? FloatingActionButton.extended(
-              onPressed: _isLoading ? null : _navigateToAddMembers,
-              icon: const Icon(Icons.person_add),
-              label: const Text('Add Members'),
-              backgroundColor: Colors.green,
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Remove Members FAB (DES-GRP004)
+                FloatingActionButton.extended(
+                  heroTag: 'remove_members',
+                  onPressed: _isLoading ? null : _navigateToRemoveMembers,
+                  icon: const Icon(Icons.person_remove),
+                  label: const Text('Remove'),
+                  backgroundColor: Colors.red,
+                ),
+                const SizedBox(height: 12),
+                // Add Members FAB (DES-GRP003)
+                FloatingActionButton.extended(
+                  heroTag: 'add_members',
+                  onPressed: _isLoading ? null : _navigateToAddMembers,
+                  icon: const Icon(Icons.person_add),
+                  label: const Text('Add'),
+                  backgroundColor: Colors.green,
+                ),
+              ],
             )
           : null,
       body: members.isEmpty
