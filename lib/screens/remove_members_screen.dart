@@ -83,7 +83,8 @@ class _RemoveMembersScreenState extends State<RemoveMembersScreen> {
   Future<void> _confirmAndRemove() async {
     if (_selectedPhoneNumbers.isEmpty) {
       setState(
-          () => _errorMessage = 'Please select at least one member to remove');
+        () => _errorMessage = 'Please select at least one member to remove',
+      );
       return;
     }
 
@@ -92,8 +93,10 @@ class _RemoveMembersScreenState extends State<RemoveMembersScreen> {
         .where((phone) => !_isCurrentUser(phone))
         .length;
     if (_selectedPhoneNumbers.length >= otherMembersCount) {
-      setState(() => _errorMessage =
-          'Cannot remove all members. Delete the group instead.');
+      setState(
+        () => _errorMessage =
+            'Cannot remove all members. Delete the group instead.',
+      );
       return;
     }
 
@@ -143,7 +146,10 @@ class _RemoveMembersScreenState extends State<RemoveMembersScreen> {
           Navigator.pop(context, true); // Return true to indicate success
         }
       } else {
-        setState(() => _errorMessage = response['message'] ?? 'Failed to remove members');
+        setState(
+          () =>
+              _errorMessage = response['message'] ?? 'Failed to remove members',
+        );
       }
     } catch (e) {
       setState(() => _errorMessage = e.toString());
@@ -157,213 +163,218 @@ class _RemoveMembersScreenState extends State<RemoveMembersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Remove Members'),
-        elevation: 2,
-      ),
-      body: Column(
-        children: [
-          // Error message
-          if (_errorMessage != null)
+      appBar: AppBar(title: const Text('Remove Members'), elevation: 2),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Error message
+            if (_errorMessage != null)
+              Container(
+                width: double.infinity,
+                color: Colors.red.shade100,
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    const Icon(Icons.error_outline, color: Colors.red),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        _errorMessage!,
+                        style: const TextStyle(color: Colors.red),
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.red),
+                      onPressed: () => setState(() => _errorMessage = null),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Group info and selection count
             Container(
               width: double.infinity,
-              color: Colors.red.shade100,
-              padding: const EdgeInsets.all(12),
-              child: Row(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.red[50],
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey[300]!, width: 1),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Icon(Icons.error_outline, color: Colors.red),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _errorMessage!,
-                      style: const TextStyle(color: Colors.red),
+                  Text(
+                    widget.groupName,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.red,
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.close, color: Colors.red),
-                    onPressed: () => setState(() => _errorMessage = null),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Selected: ${_selectedPhoneNumbers.length}/$maxMembers',
+                    style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Tap to select members for removal',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
                 ],
               ),
             ),
 
-          // Group info and selection count
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.red[50],
-              border: Border(
-                bottom: BorderSide(color: Colors.grey[300]!, width: 1),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.groupName,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.red,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Selected: ${_selectedPhoneNumbers.length}/$maxMembers',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[700],
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Tap to select members for removal',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Colors.grey[600],
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-              ],
-            ),
-          ),
+            // Member list
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.symmetric(vertical: 8),
+                itemCount: widget.memberPhoneNumbers.length,
+                itemBuilder: (context, index) {
+                  final phoneNumber = widget.memberPhoneNumbers[index];
+                  final isCurrentUser = _isCurrentUser(phoneNumber);
+                  final isAdminUser = _isAdmin(phoneNumber);
+                  final isSelected = _selectedPhoneNumbers.contains(
+                    phoneNumber,
+                  );
 
-          // Member list
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: widget.memberPhoneNumbers.length,
-              itemBuilder: (context, index) {
-                final phoneNumber = widget.memberPhoneNumbers[index];
-                final isCurrentUser = _isCurrentUser(phoneNumber);
-                final isAdminUser = _isAdmin(phoneNumber);
-                final isSelected = _selectedPhoneNumbers.contains(phoneNumber);
-
-                return Card(
-                  margin:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  child: ListTile(
-                    leading: Checkbox(
-                      value: isSelected,
-                      onChanged: isCurrentUser
-                          ? null // Disabled for current user
-                          : (_) => _toggleSelection(phoneNumber),
-                      activeColor: Colors.red,
+                  return Card(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
                     ),
-                    title: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            phoneNumber,
-                            style: TextStyle(
-                              color: isCurrentUser ? Colors.grey : null,
-                              fontWeight: isSelected ? FontWeight.bold : null,
-                            ),
-                          ),
-                        ),
-                        if (isAdminUser)
-                          Container(
-                            margin: const EdgeInsets.only(left: 8),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.orange[700],
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Text(
-                              'Admin',
+                    child: ListTile(
+                      leading: Checkbox(
+                        value: isSelected,
+                        onChanged: isCurrentUser
+                            ? null // Disabled for current user
+                            : (_) => _toggleSelection(phoneNumber),
+                        activeColor: Colors.red,
+                      ),
+                      title: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              phoneNumber,
                               style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
+                                color: isCurrentUser ? Colors.grey : null,
+                                fontWeight: isSelected ? FontWeight.bold : null,
                               ),
                             ),
                           ),
-                      ],
-                    ),
-                    subtitle: Text(
-                      isCurrentUser
-                          ? 'You (cannot remove yourself)'
-                          : isSelected
-                              ? 'Selected for removal'
-                              : 'Tap to select',
-                      style: TextStyle(
-                        color: isCurrentUser
-                            ? Colors.grey
-                            : isSelected
-                                ? Colors.red
-                                : Colors.grey[600],
-                        fontSize: 12,
-                      ),
-                    ),
-                    enabled: !isCurrentUser,
-                    onTap:
-                        isCurrentUser ? null : () => _toggleSelection(phoneNumber),
-                    tileColor: isSelected ? Colors.red.withOpacity(0.1) : null,
-                  ),
-                );
-              },
-            ),
-          ),
-
-          // Action buttons
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.2),
-                  spreadRadius: 1,
-                  blurRadius: 4,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _isLoading ? null : () => Navigator.pop(context),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: const Text('Cancel'),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: _isLoading || _selectedPhoneNumbers.isEmpty
-                        ? null
-                        : _confirmAndRemove,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                    ),
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+                          if (isAdminUser)
+                            Container(
+                              margin: const EdgeInsets.only(left: 8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: Colors.orange[700],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Text(
+                                'Admin',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
-                          )
-                        : Text('Remove (${_selectedPhoneNumbers.length})'),
-                  ),
-                ),
-              ],
+                        ],
+                      ),
+                      subtitle: Text(
+                        isCurrentUser
+                            ? 'You (cannot remove yourself)'
+                            : isSelected
+                            ? 'Selected for removal'
+                            : 'Tap to select',
+                        style: TextStyle(
+                          color: isCurrentUser
+                              ? Colors.grey
+                              : isSelected
+                              ? Colors.red
+                              : Colors.grey[600],
+                          fontSize: 12,
+                        ),
+                      ),
+                      enabled: !isCurrentUser,
+                      onTap: isCurrentUser
+                          ? null
+                          : () => _toggleSelection(phoneNumber),
+                      tileColor: isSelected
+                          ? Colors.red.withOpacity(0.1)
+                          : null,
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
 
-          // Loading indicator
-          if (_isLoading) const LinearProgressIndicator(color: Colors.red),
-        ],
+            // Action buttons
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.2),
+                    spreadRadius: 1,
+                    blurRadius: 4,
+                    offset: const Offset(0, -2),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: _isLoading
+                          ? null
+                          : () => Navigator.pop(context),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _isLoading || _selectedPhoneNumbers.isEmpty
+                          ? null
+                          : _confirmAndRemove,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Text('Remove (${_selectedPhoneNumbers.length})'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Loading indicator
+            if (_isLoading) const LinearProgressIndicator(color: Colors.red),
+          ],
+        ),
       ),
     );
   }

@@ -2,28 +2,10 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
 import '../main.dart'; // To access storageService
+import '../models/group_member_input.dart';
 import '../utils/app_logger.dart';
 import '../widgets/status_widget.dart';
 import 'device_info_service.dart';
-
-/// Member entry with optional name fields (DES-GRP002)
-class GroupMemberInput {
-  final String phoneNumber;
-  final String? firstName;
-  final String? lastName;
-
-  GroupMemberInput({
-    required this.phoneNumber,
-    this.firstName,
-    this.lastName,
-  });
-
-  Map<String, dynamic> toJson() => {
-    'member_phone_number': phoneNumber,
-    if (firstName != null && firstName!.isNotEmpty) 'member_first_name': firstName,
-    if (lastName != null && lastName!.isNotEmpty) 'member_last_name': lastName,
-  };
-}
 
 /// Service class to handle all backend API communications
 class BackendComService {
@@ -100,7 +82,9 @@ class BackendComService {
       final responseData = jsonDecode(response.body);
       // DES-AUTH001: Handle update_required flag
       if (responseData['update_required'] == true) {
-        logger.warning('[AUTH] App update recommended - current version: $appVersion');
+        logger.warning(
+          '[AUTH] App update recommended - current version: $appVersion',
+        );
       }
       return responseData;
     } else {
@@ -562,8 +546,9 @@ class BackendComService {
       final group = await storageService.getGroup(groupId);
       if (group != null) {
         // Add new member phone numbers to existing list
-        final existingMembers =
-            List<String>.from(group.memberPhoneNumbers ?? []);
+        final existingMembers = List<String>.from(
+          group.memberPhoneNumbers ?? [],
+        );
         for (final member in members) {
           if (!existingMembers.contains(member.phoneNumber)) {
             existingMembers.add(member.phoneNumber);
@@ -655,7 +640,10 @@ class BackendComService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         // Check if response indicates an error (e.g., self-removal, last member)
         if (responseData['status'] == 'error') {
-          showMessageInStatus("error", responseData['message'] ?? 'Operation failed');
+          showMessageInStatus(
+            "error",
+            responseData['message'] ?? 'Operation failed',
+          );
           return responseData;
         }
 
@@ -706,8 +694,9 @@ class BackendComService {
       final group = await storageService.getGroup(groupId);
       if (group != null) {
         // Remove phone numbers from existing list
-        final existingMembers =
-            List<String>.from(group.memberPhoneNumbers ?? []);
+        final existingMembers = List<String>.from(
+          group.memberPhoneNumbers ?? [],
+        );
         existingMembers.removeWhere((phone) => phoneNumbers.contains(phone));
         group.memberPhoneNumbers = existingMembers;
         await storageService.saveGroup(group);
@@ -752,10 +741,7 @@ class BackendComService {
 
     final url = Uri.parse("$_baseUrl/api/groups/delete");
 
-    final body = {
-      "group_id": groupId,
-      "group_name": groupName,
-    };
+    final body = {"group_id": groupId, "group_name": groupName};
 
     logger.debug("[API Request] POST $url Body: ${jsonEncode(body)}");
 
@@ -778,7 +764,10 @@ class BackendComService {
       if (response.statusCode == 200 || response.statusCode == 201) {
         // Check if response indicates an error (e.g., active trip)
         if (responseData['status'] == 'error') {
-          showMessageInStatus("error", responseData['message'] ?? 'Operation failed');
+          showMessageInStatus(
+            "error",
+            responseData['message'] ?? 'Operation failed',
+          );
           return responseData;
         }
 
@@ -927,8 +916,9 @@ class BackendComService {
         } else {
           // Update existing group
           group.groupName = groupData['name'] ?? group.groupName;
-          group.memberPhoneNumbers =
-              List<String>.from(groupData['member_phone_numbers'] ?? []);
+          group.memberPhoneNumbers = List<String>.from(
+            groupData['member_phone_numbers'] ?? [],
+          );
           group.adminPhoneNumber = groupData['admin_phone_number'];
           group.driverPhoneNumber = groupData['driver_phone_number'];
           group.isAdmin = groupData['is_admin'] ?? false;
@@ -958,9 +948,7 @@ class BackendComService {
         }
       }
 
-      logger.debug(
-        '[HIVE] Synced ${groupList.length} groups to Hive storage',
-      );
+      logger.debug('[HIVE] Synced ${groupList.length} groups to Hive storage');
     } catch (e, stackTrace) {
       logger.error(
         '[ERROR] Error syncing groups to Hive: $e',

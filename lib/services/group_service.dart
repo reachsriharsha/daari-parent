@@ -1,5 +1,6 @@
 import '../main.dart'; // To access storageService
 import '../models/group.dart';
+import '../models/group_member_input.dart';
 import 'backend_com_service.dart';
 import '../utils/app_logger.dart';
 
@@ -51,9 +52,11 @@ class GroupService {
   }
 
   // Store group both in backend and locally
+  /// [members] can be either a List<String> (phone numbers only, backward compatible)
+  /// or a List<GroupMemberInput> (with optional names)
   Future<Map<String, dynamic>> createGroup(
     String name,
-    List<String> members,
+    List<dynamic> members,
   ) async {
     final idToken = storageService.getIdToken();
     final profIdString = storageService.getProfId();
@@ -65,10 +68,13 @@ class GroupService {
       throw Exception('Profile ID not found. Please login again.');
     }
 
-    /*final profId = int.tryParse(profIdString);
-    if (profId == null) {
-      throw Exception('Invalid profile ID format. Please login again.');
-    }*/
+    // Extract phone numbers for both local storage and backend
+    final memberPhones = members.map((m) {
+      if (m is GroupMemberInput) {
+        return m.phoneNumber;
+      }
+      return m.toString();
+    }).toList();
 
     // Use backend service for communication
     final responseData = await BackendComService.instance
@@ -76,7 +82,7 @@ class GroupService {
           idToken: idToken,
           name: name,
           profId: profIdString,
-          members: members,
+          members: memberPhones,
         );
 
     // Save to Hive using Group model (keeping Hive update in group service)
@@ -85,7 +91,7 @@ class GroupService {
       groupName: name,
       destinationLatitude: 12.91,
       destinationLongitude: 77.64,
-      memberPhoneNumbers: members,
+      memberPhoneNumbers: memberPhones,
       isAdmin: true,
       address: null, // Initially null for new groups
       placeName: null,

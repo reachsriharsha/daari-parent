@@ -21,10 +21,8 @@ class DeleteGroupDialog extends StatefulWidget {
     return showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder: (context) => DeleteGroupDialog(
-        groupId: groupId,
-        groupName: groupName,
-      ),
+      builder: (context) =>
+          DeleteGroupDialog(groupId: groupId, groupName: groupName),
     );
   }
 
@@ -33,24 +31,10 @@ class DeleteGroupDialog extends StatefulWidget {
 }
 
 class _DeleteGroupDialogState extends State<DeleteGroupDialog> {
-  final _confirmationController = TextEditingController();
   bool _isLoading = false;
   String? _errorMessage;
 
-  bool get _isNameMatching =>
-      _confirmationController.text.trim() == widget.groupName;
-
-  @override
-  void initState() {
-    super.initState();
-    _confirmationController.addListener(() {
-      setState(() {}); // Rebuild to update button state
-    });
-  }
-
   Future<void> _performDelete() async {
-    if (!_isNameMatching) return;
-
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -67,7 +51,9 @@ class _DeleteGroupDialogState extends State<DeleteGroupDialog> {
           Navigator.pop(context, true); // Return true for success
         }
       } else {
-        setState(() => _errorMessage = response['message'] ?? 'Failed to delete group');
+        setState(
+          () => _errorMessage = response['message'] ?? 'Failed to delete group',
+        );
       }
     } catch (e) {
       setState(() => _errorMessage = 'Failed to delete group: $e');
@@ -93,7 +79,7 @@ class _DeleteGroupDialogState extends State<DeleteGroupDialog> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Warning text
+            // Group name
             const Text(
               'You are about to delete:',
               style: TextStyle(fontSize: 14),
@@ -116,40 +102,24 @@ class _DeleteGroupDialogState extends State<DeleteGroupDialog> {
             ),
             const SizedBox(height: 16),
 
-            // Warning details
+            // Warning message
             const Text(
               'This action cannot be undone.',
-              style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              '- All members will be removed from the group\n'
-              '- Trip history will be preserved for records',
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade700),
-            ),
-            const SizedBox(height: 16),
-
-            // Confirmation input
-            const Text(
-              'To confirm, type the group name below:',
-              style: TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _confirmationController,
-              decoration: InputDecoration(
-                hintText: widget.groupName,
-                border: const OutlineInputBorder(),
-                suffixIcon: _isNameMatching
-                    ? const Icon(Icons.check_circle, color: Colors.green)
-                    : null,
+              style: TextStyle(
+                color: Colors.red,
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
               ),
-              enabled: !_isLoading,
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Are you sure you want to proceed?',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
             ),
 
             // Error message
             if (_errorMessage != null) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
@@ -181,7 +151,7 @@ class _DeleteGroupDialogState extends State<DeleteGroupDialog> {
         ),
         // Delete button
         ElevatedButton(
-          onPressed: _isLoading || !_isNameMatching ? null : _performDelete,
+          onPressed: _isLoading ? null : _performDelete,
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.red,
             foregroundColor: Colors.white,
@@ -199,11 +169,5 @@ class _DeleteGroupDialogState extends State<DeleteGroupDialog> {
         ),
       ],
     );
-  }
-
-  @override
-  void dispose() {
-    _confirmationController.dispose();
-    super.dispose();
   }
 }

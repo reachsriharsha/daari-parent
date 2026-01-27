@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'models/group_member_input.dart';
 
 class SelectContactsPage extends StatefulWidget {
-  final Function(List<String>) onMembersSelected;
+  final Function(List<GroupMemberInput>) onMembersSelected;
   const SelectContactsPage({super.key, required this.onMembersSelected});
 
   @override
@@ -176,7 +177,9 @@ class _SelectContactsPageState extends State<SelectContactsPage> {
                           .where(
                             (c) =>
                                 c.phones.isNotEmpty &&
-                                c.phones.first.number.isNotEmpty,
+                                c.phones.first.number.isNotEmpty &&
+                                (c.name.first.isNotEmpty ||
+                                    c.name.last.isNotEmpty),
                           )
                           .toList();
 
@@ -229,13 +232,19 @@ class _SelectContactsPageState extends State<SelectContactsPage> {
         onPressed: selectedContacts.isEmpty
             ? null
             : () {
-                final memberPhones = selectedContacts
+                final members = selectedContacts
+                    .where((c) => c.phones.isNotEmpty)
                     .map(
-                      (c) => c.phones.isNotEmpty ? c.phones.first.number : '',
+                      (c) => GroupMemberInput(
+                        phoneNumber: c.phones.first.number,
+                        firstName: c.name.first.isNotEmpty
+                            ? c.name.first
+                            : null,
+                        lastName: c.name.last.isNotEmpty ? c.name.last : null,
+                      ),
                     )
-                    .where((phone) => phone.isNotEmpty)
                     .toList();
-                widget.onMembersSelected(memberPhones);
+                widget.onMembersSelected(members);
                 Navigator.pop(context);
               },
         child: const Icon(Icons.done),

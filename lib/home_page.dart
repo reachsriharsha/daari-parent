@@ -5,6 +5,7 @@ import 'services/backend_com_service.dart';
 import 'services/diagnostic_service.dart';
 import 'group_details_page.dart';
 import 'main.dart'; // To access storageService
+import 'models/group_member_input.dart';
 import 'widgets/status_widget.dart';
 import 'screens/log_viewer_screen.dart';
 import 'login_page.dart';
@@ -456,12 +457,11 @@ class CreateGroupDialog extends StatefulWidget {
 
 class _CreateGroupDialogState extends State<CreateGroupDialog> {
   final TextEditingController groupNameController = TextEditingController();
-  final TextEditingController membersController = TextEditingController();
+  List<GroupMemberInput> selectedMembers = [];
   bool loading = false;
 
   Future<void> _createGroup() async {
     final groupName = groupNameController.text.trim();
-    final membersText = membersController.text.trim();
 
     if (groupName.isEmpty) {
       ScaffoldMessenger.of(
@@ -473,17 +473,14 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
     try {
       setState(() => loading = true);
 
-      // Members as list of strings
-      List<String> members = [];
-      if (membersText.isNotEmpty) {
-        members = membersText.split(",").map((m) => m.trim()).toList();
-      }
-
       // Get ngrok_url for backend
       final backendUrl =
           storageService.getNgrokUrl() ?? ""; // Read from Hive instead
       final groupService = GroupService(baseUrl: backendUrl);
-      final response = await groupService.createGroup(groupName, members);
+      final response = await groupService.createGroup(
+        groupName,
+        selectedMembers,
+      );
 
       if (context.mounted) {
         Navigator.pop(context);
@@ -514,35 +511,65 @@ class _CreateGroupDialogState extends State<CreateGroupDialog> {
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             TextField(
               controller: groupNameController,
               decoration: const InputDecoration(labelText: 'Group Name'),
             ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: membersController,
-              decoration: const InputDecoration(
-                labelText: 'Members (comma separated)',
-              ),
-            ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 16),
             ElevatedButton.icon(
               icon: const Icon(Icons.contacts),
-              label: const Text('Pick from Contacts'),
+              label: const Text('Select Members from Contacts'),
               onPressed: () async {
-                // Open contact picker and fill membersController
                 await Navigator.of(context).push(
                   MaterialPageRoute(
                     builder: (ctx) => SelectContactsPage(
-                      onMembersSelected: (phones) {
-                        membersController.text = phones.join(", ");
+                      onMembersSelected: (members) {
+                        setState(() {
+                          selectedMembers = members;
+                        });
                       },
                     ),
                   ),
                 );
               },
             ),
+            if (selectedMembers.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Text(
+                'Selected Members (${selectedMembers.length}):',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              ...selectedMembers.asMap().entries.map((entry) {
+                final index = entry.key;
+                final member = entry.value;
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  child: ListTile(
+                    dense: true,
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.purple[100],
+                      child: const Icon(Icons.person, size: 20),
+                    ),
+                    title: Text(
+                      member.getDisplayName(),
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                    subtitle: Text(member.phoneNumber),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.close, size: 20),
+                      onPressed: () {
+                        setState(() {
+                          selectedMembers.removeAt(index);
+                        });
+                      },
+                    ),
+                  ),
+                );
+              }).toList(),
+            ],
           ],
         ),
       ),
