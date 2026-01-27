@@ -400,63 +400,67 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
           ),
         // Destination suggestions list
         if (widget.showDestinationSearch && _placeSearchQuery.isNotEmpty)
-          Container(
-            height: 200,
-            margin: const EdgeInsets.only(top: 8),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Builder(
-              builder: (context) {
-                logger.debug(
-                  '[SEARCH] Container builder: _isLoading=$_isSearchPlaceLoading, _predictions.length=${_predictions.length}',
-                );
-
-                if (_isSearchPlaceLoading) {
-                  logger.debug('[SEARCH]    -> Showing loading indicator');
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (_predictions.isEmpty) {
+          Flexible(
+            child: Container(
+              constraints: const BoxConstraints(maxHeight: 200),
+              margin: const EdgeInsets.only(top: 8),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Builder(
+                builder: (context) {
                   logger.debug(
-                    '[SEARCH]    -> Showing empty message: ${_errorSearchPlace ?? "No results found"}',
+                    '[SEARCH] Container builder: _isLoading=$_isSearchPlaceLoading, _predictions.length=${_predictions.length}',
                   );
-                  return Center(
-                    child: Text(
-                      _errorSearchPlace ?? 'No results found',
-                      style: TextStyle(color: Colors.grey[600]),
-                    ),
-                  );
-                }
 
-                logger.debug(
-                  '[SEARCH]    -> Building ListView with ${_predictions.length} items',
-                );
-                return ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: _predictions.length,
-                  itemBuilder: (context, index) {
+                  if (_isSearchPlaceLoading) {
+                    logger.debug('[SEARCH]    -> Showing loading indicator');
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  if (_predictions.isEmpty) {
                     logger.debug(
-                      '[SEARCH]       Building item $index: ${_predictions[index].description}',
+                      '[SEARCH]    -> Showing empty message: ${_errorSearchPlace ?? "No results found"}',
                     );
-                    return ListTile(
-                      leading: const Icon(Icons.location_on),
-                      title: Text(
-                        _predictions[index].description,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                    return Center(
+                      child: Text(
+                        _errorSearchPlace ?? 'No results found',
+                        style: TextStyle(color: Colors.grey[600]),
                       ),
-                      onTap: () {
-                        logger.debug(
-                          '[SEARCH] Tapped: ${_predictions[index].placeId}',
-                        );
-                        _setCoordinatesFromPlaceId(_predictions[index].placeId);
-                      },
                     );
-                  },
-                );
-              },
+                  }
+
+                  logger.debug(
+                    '[SEARCH]    -> Building ListView with ${_predictions.length} items',
+                  );
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _predictions.length,
+                    itemBuilder: (context, index) {
+                      logger.debug(
+                        '[SEARCH]       Building item $index: ${_predictions[index].description}',
+                      );
+                      return ListTile(
+                        leading: const Icon(Icons.location_on),
+                        title: Text(
+                          _predictions[index].description,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onTap: () {
+                          logger.debug(
+                            '[SEARCH] Tapped: ${_predictions[index].placeId}',
+                          );
+                          _setCoordinatesFromPlaceId(
+                            _predictions[index].placeId,
+                          );
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ),
         if (widget.showDestinationSearch && widget.showHomeSearch)
@@ -552,65 +556,69 @@ class _SearchPlaceWidgetState extends State<SearchPlaceWidget> {
           ),
         // Home address suggestions list
         if (_homeSearchQuery.isNotEmpty)
-          Container(
-            height: 200,
-            margin: const EdgeInsets.only(top: 8),
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: Builder(
-              builder: (context) {
-                logger.debug(
-                  '[HOME SEARCH] Container builder: _isLoading=$_isHomeSearchLoading, _homePredictions.length=${_homePredictions.length}',
-                );
-
-                if (_isHomeSearchLoading) {
-                  logger.debug('[HOME SEARCH]    -> Showing loading indicator');
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (_homePredictions.isEmpty) {
+          Flexible(
+            child: Container(
+              constraints: const BoxConstraints(maxHeight: 200),
+              margin: const EdgeInsets.only(top: 8),
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.shade300),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Builder(
+                builder: (context) {
                   logger.debug(
-                    '[HOME SEARCH]    -> Showing empty message: ${_errorHomeSearch ?? "No results found"}',
+                    '[HOME SEARCH] Container builder: _isLoading=$_isHomeSearchLoading, _homePredictions.length=${_homePredictions.length}',
                   );
-                  return Center(
-                    child: Text(
-                      _errorHomeSearch ?? 'No results found',
-                      style: TextStyle(color: Colors.grey[600]),
-                    ),
-                  );
-                }
 
-                logger.debug(
-                  '[HOME SEARCH]    -> Building ListView with ${_homePredictions.length} items',
-                );
-                return ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: _homePredictions.length,
-                  itemBuilder: (context, index) {
+                  if (_isHomeSearchLoading) {
                     logger.debug(
-                      '[HOME SEARCH]       Building item $index: ${_homePredictions[index].description}',
+                      '[HOME SEARCH]    -> Showing loading indicator',
                     );
-                    return ListTile(
-                      leading: const Icon(Icons.home),
-                      title: Text(
-                        _homePredictions[index].description,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  if (_homePredictions.isEmpty) {
+                    logger.debug(
+                      '[HOME SEARCH]    -> Showing empty message: ${_errorHomeSearch ?? "No results found"}',
+                    );
+                    return Center(
+                      child: Text(
+                        _errorHomeSearch ?? 'No results found',
+                        style: TextStyle(color: Colors.grey[600]),
                       ),
-                      onTap: () {
-                        logger.debug(
-                          '[HOME SEARCH] Tapped: ${_homePredictions[index].placeId}',
-                        );
-                        _setHomeAddressFromPlaceId(
-                          _homePredictions[index].placeId,
-                        );
-                      },
                     );
-                  },
-                );
-              },
+                  }
+
+                  logger.debug(
+                    '[HOME SEARCH]    -> Building ListView with ${_homePredictions.length} items',
+                  );
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _homePredictions.length,
+                    itemBuilder: (context, index) {
+                      logger.debug(
+                        '[HOME SEARCH]       Building item $index: ${_homePredictions[index].description}',
+                      );
+                      return ListTile(
+                        leading: const Icon(Icons.home),
+                        title: Text(
+                          _homePredictions[index].description,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        onTap: () {
+                          logger.debug(
+                            '[HOME SEARCH] Tapped: ${_homePredictions[index].placeId}',
+                          );
+                          _setHomeAddressFromPlaceId(
+                            _homePredictions[index].placeId,
+                          );
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ),
       ],

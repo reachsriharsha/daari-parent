@@ -353,7 +353,6 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
       return;
     }
 
-    String logs = "";
     try {
       final result = await _updateGroupAddressInBackend(
         groupId: widget.groupId,
@@ -364,7 +363,6 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
       );
 
       if (mounted) {
-        _showApiLogsDialog(logs);
         _showSnackBar(result['message'] ?? 'Destination updated successfully!');
 
         // Update destination state for immediate display
@@ -376,7 +374,6 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
       }
     } catch (e) {
       if (mounted) {
-        _showApiLogsDialog(logs.isNotEmpty ? logs : e.toString());
         _showSnackBar("[API ERROR] Failed to update destination: $e");
       }
     }
@@ -415,23 +412,6 @@ class _GroupDetailsPageState extends State<GroupDetailsPage>
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  /// Show API logs dialog
-  void _showApiLogsDialog(String logs) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('API Logs'),
-        content: SingleChildScrollView(child: Text(logs)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    );
   }
 
   @override
