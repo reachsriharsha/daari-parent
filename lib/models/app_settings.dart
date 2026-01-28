@@ -7,9 +7,6 @@ class AppSettings extends HiveObject {
   @HiveField(0)
   String? ngrokUrl;
 
-  @HiveField(1)
-  String? idToken;
-
   @HiveField(2)
   String? profId;
 
@@ -36,7 +33,6 @@ class AppSettings extends HiveObject {
 
   AppSettings({
     this.ngrokUrl,
-    this.idToken,
     this.profId,
     this.locationPermissionGranted,
     this.fcmToken,
@@ -50,7 +46,6 @@ class AppSettings extends HiveObject {
   // Helper method to clear all settings
   void clear() {
     ngrokUrl = null;
-    idToken = null;
     profId = null;
     locationPermissionGranted = null;
     fcmToken = null;
@@ -63,6 +58,6 @@ class AppSettings extends HiveObject {
 
   @override
   String toString() {
-    return 'AppSettings(ngrokUrl: $ngrokUrl, profId: $profId, hasToken: ${idToken != null}, locationPermission: $locationPermissionGranted, hasFcmToken: ${fcmToken != null}, homeCoords: ${homeLatitude != null && homeLongitude != null ? "($homeLatitude, $homeLongitude)" : "null"}, homeAddress: $homeAddress, homePlaceName: $homePlaceName, lastLogin: $lastLoginTimestamp)';
+    return 'AppSettings(ngrokUrl: $ngrokUrl, profId: $profId, locationPermission: $locationPermissionGranted, hasFcmToken: ${fcmToken != null}, homeCoords: ${homeLatitude != null && homeLongitude != null ? "($homeLatitude, $homeLongitude)" : "null"}, homeAddress: $homeAddress, homePlaceName: $homePlaceName, lastLogin: $lastLoginTimestamp)';
   }
 }

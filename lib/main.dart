@@ -80,7 +80,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   Future<bool> _checkSession() async {
     try {
-      return storageService.isSessionValid();
+      return await storageService.isSessionValid();
     } catch (e) {
       logger.error('[SESSION] Error checking session: $e');
       return false;

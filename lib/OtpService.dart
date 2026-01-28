@@ -78,8 +78,7 @@ class OtpService {
         return null;
       }
 
-      // 4) Save values to Hive
-      await storageService.saveIdToken(idToken);
+      // 4) Save values to Hive (token no longer saved - fetched fresh from Firebase)
       await storageService.saveProfId(backendResponse["prof_id"]);
       await storageService.saveNgrokUrl(backendUrl);
 
@@ -139,7 +138,7 @@ class OtpService {
   Future<bool> refreshFcmToken() async {
     try {
       // Get current ID token from Hive
-      final idToken = storageService.getIdToken();
+      final idToken = await storageService.getIdToken();
       if (idToken == null) {
         logger.debug('[AUTH] Cannot refresh FCM token - no ID token found');
         return false;

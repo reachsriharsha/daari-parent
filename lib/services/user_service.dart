@@ -22,7 +22,7 @@ class UserService {
   }) async {
     try {
       // Get required data from storage
-      final idToken = _storageService.getIdToken();
+      final idToken = await _storageService.getIdToken();
       final profId = _storageService.getProfId();
 
       if (idToken == null || idToken.isEmpty) {
@@ -61,8 +61,8 @@ class UserService {
   }
 
   /// Get current authentication status
-  bool get isAuthenticated {
-    final idToken = _storageService.getIdToken();
+  Future<bool> get isAuthenticated async {
+    final idToken = await _storageService.getIdToken();
     return idToken != null && idToken.isNotEmpty;
   }
 

@@ -51,3 +51,7 @@ android/build/reports/
 # IDE workspace files
 .metadata
 *.g.dart
+
+**/generated_plugin_registrant.*
+**/generated_plugins.cmake
+**/GeneratedPluginRegistrant.swift

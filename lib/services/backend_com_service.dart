@@ -288,7 +288,7 @@ class BackendComService {
 
   /// Upload diagnostics ZIP file
   Future<Map<String, dynamic>> uploadDiagnostics(File zipFile) async {
-    final idToken = storageService.getIdToken();
+    final idToken = await storageService.getIdToken();
     if (idToken == null || idToken.isEmpty) {
       showMessageInStatus("error", "Not authenticated");
       throw Exception("Not authenticated");
@@ -468,7 +468,7 @@ class BackendComService {
       throw ArgumentError('Maximum 20 members can be added at once');
     }
 
-    final idToken = storageService.getIdToken();
+    final idToken = await storageService.getIdToken();
     if (idToken == null) {
       showMessageInStatus("error", "Session expired. Please login again.");
       throw Exception("Session expired. Please login again.");
@@ -601,7 +601,7 @@ class BackendComService {
       throw ArgumentError('Maximum 20 members can be removed at once');
     }
 
-    final idToken = storageService.getIdToken();
+    final idToken = await storageService.getIdToken();
     if (idToken == null) {
       showMessageInStatus("error", "Session expired. Please login again.");
       throw Exception("Session expired. Please login again.");
@@ -733,7 +733,7 @@ class BackendComService {
       throw Exception("Backend URL is not set");
     }
 
-    final idToken = storageService.getIdToken();
+    final idToken = await storageService.getIdToken();
     if (idToken == null) {
       showMessageInStatus("error", "Session expired. Please login again.");
       throw Exception("Session expired. Please login again.");
@@ -836,7 +836,7 @@ class BackendComService {
       throw Exception("Backend URL is not set");
     }
 
-    final idToken = storageService.getIdToken();
+    final idToken = await storageService.getIdToken();
     if (idToken == null) {
       throw Exception("Session expired. Please login again.");
     }

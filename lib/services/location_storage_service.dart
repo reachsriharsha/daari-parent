@@ -1,4 +1,5 @@
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../models/location_point.dart';
 import '../models/trip_settings.dart';
 import '../models/app_settings.dart';
@@ -453,24 +454,20 @@ class LocationStorageService {
     }
   }
 
-  /// Save ID token
-  Future<bool> saveIdToken(String token) async {
+  /// Get ID token (fresh from Firebase, auto-refreshes if expired)
+  Future<String?> getIdToken() async {
     try {
-      var settings = getAppSettings() ?? AppSettings();
-      settings.idToken = token;
-      return await saveAppSettings(settings);
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        // Firebase SDK handles refresh automatically if expired
+        final token = await user.getIdToken();
+        return token;
+      }
+      // Fallback: user not logged in
+      logger.warning('[AUTH] No Firebase user - cannot get token');
+      return null;
     } catch (e) {
-      logger.error('[HIVE ERROR] Error saving ID token: $e');
-      return false;
-    }
-  }
-
-  /// Get ID token
-  String? getIdToken() {
-    try {
-      return getAppSettings()?.idToken;
-    } catch (e) {
-      logger.error('[HIVE ERROR] Error getting ID token: $e');
+      logger.error('[AUTH ERROR] Error getting fresh ID token: $e');
       return null;
     }
   }
@@ -584,24 +581,29 @@ class LocationStorageService {
   }
 
   /// Check if current session is valid (within 24 hours)
-  bool isSessionValid() {
+  Future<bool> isSessionValid() async {
     try {
-      // Check 1: Get all required data
-      final timestamp = getLoginTimestamp();
-      final profId = getProfId();
-      final idToken = getIdToken();
+      // Check 1: Firebase user must be logged in
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        logger.debug('[SESSION] No Firebase user logged in');
+        return false;
+      }
 
-      // Check 2: Ensure all required fields exist
-      if (timestamp == null ||
-          profId == null ||
-          profId.isEmpty ||
-          idToken == null ||
-          idToken.isEmpty) {
-        logger.debug('[SESSION] Session invalid: Missing required data');
+      // Check 2: Profile ID must exist
+      final profId = getProfId();
+      if (profId == null || profId.isEmpty) {
+        logger.debug('[SESSION] Missing profile ID');
         return false;
       }
 
       // Check 3: Verify timestamp is within 24 hours
+      final timestamp = getLoginTimestamp();
+      if (timestamp == null) {
+        logger.debug('[SESSION] No login timestamp found');
+        return false;
+      }
+
       final now = DateTime.now();
       final difference = now.difference(timestamp);
       final isWithin24Hours = difference.inHours < 24;
@@ -629,7 +631,6 @@ class LocationStorageService {
       var settings = getAppSettings() ?? AppSettings();
 
       // Clear authentication-related fields
-      settings.idToken = null;
       settings.profId = null;
       settings.lastLoginTimestamp = null;
 

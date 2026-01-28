@@ -22,7 +22,7 @@ class GroupService {
     String? address,
     void Function(String log)? onLog,
   }) async {
-    final idToken = storageService.getIdToken();
+    final idToken = await storageService.getIdToken();
     if (idToken == null) {
       throw Exception('ID token not found. Please login again.');
     }
@@ -58,7 +58,7 @@ class GroupService {
     String name,
     List<dynamic> members,
   ) async {
-    final idToken = storageService.getIdToken();
+    final idToken = await storageService.getIdToken();
     final profIdString = storageService.getProfId();
 
     if (idToken == null) {
