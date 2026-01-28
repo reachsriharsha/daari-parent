@@ -359,7 +359,7 @@ class BackendComService {
       throw Exception("Backend URL is not set");
     }
 
-    final idToken = storageService.getIdToken();
+    final idToken = await storageService.getIdToken();
     if (idToken == null) {
       showMessageInStatus("error", "Session expired. Please login again.");
       throw Exception("Session expired. Please login again.");
