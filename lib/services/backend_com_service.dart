@@ -5,6 +5,7 @@ import '../main.dart'; // To access storageService
 import '../models/group_member_input.dart';
 import '../utils/app_logger.dart';
 import '../widgets/status_widget.dart';
+import '../utils/phone_number_utils.dart';
 import 'device_info_service.dart';
 
 /// Service class to handle all backend API communications
@@ -359,6 +360,23 @@ class BackendComService {
       throw Exception("Backend URL is not set");
     }
 
+    // Normalize driver phone number
+    String normalizedDriverPhone;
+    try {
+      normalizedDriverPhone = PhoneNumberUtils.normalizePhoneNumber(
+        driverPhoneNumber,
+      );
+      logger.debug(
+        '[ASSIGN_DRIVER] Normalized phone: $driverPhoneNumber → $normalizedDriverPhone',
+      );
+    } catch (e) {
+      logger.error(
+        '[ASSIGN_DRIVER] Invalid phone number: $driverPhoneNumber - $e',
+      );
+      showMessageInStatus("error", "Invalid driver phone number format");
+      throw ArgumentError('Invalid driver phone number: $e');
+    }
+
     final idToken = await storageService.getIdToken();
     if (idToken == null) {
       showMessageInStatus("error", "Session expired. Please login again.");
@@ -367,7 +385,7 @@ class BackendComService {
 
     final url = Uri.parse("$_baseUrl/api/groups/update");
 
-    final body = {"group_id": groupId, "driver_assign": driverPhoneNumber};
+    final body = {"group_id": groupId, "driver_assign": normalizedDriverPhone};
 
     logger.debug("[API Request] POST $url Body: ${jsonEncode(body)}");
 
@@ -601,6 +619,19 @@ class BackendComService {
       throw ArgumentError('Maximum 20 members can be removed at once');
     }
 
+    // Normalize all phone numbers
+    final normalizedPhones = <String>[];
+    for (final phone in memberPhoneNumbers) {
+      try {
+        final normalized = PhoneNumberUtils.normalizePhoneNumber(phone);
+        normalizedPhones.add(normalized);
+      } catch (e) {
+        logger.error('[REMOVE_MEMBERS] Invalid phone number: $phone - $e');
+        // Add original if normalization fails, backend will handle
+        normalizedPhones.add(phone);
+      }
+    }
+
     final idToken = await storageService.getIdToken();
     if (idToken == null) {
       showMessageInStatus("error", "Session expired. Please login again.");
@@ -609,7 +640,7 @@ class BackendComService {
 
     final url = Uri.parse("$_baseUrl/api/groups/members/remove/");
 
-    final memberEntries = memberPhoneNumbers
+    final memberEntries = normalizedPhones
         .map((phone) => {'member_phone_number': phone})
         .toList();
 

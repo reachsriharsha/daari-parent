@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/backend_com_service.dart';
+import '../utils/phone_number_utils.dart';
 
 /// Screen for removing members from an existing group (DES-GRP004)
 class RemoveMembersScreen extends StatefulWidget {
@@ -29,23 +30,31 @@ class _RemoveMembersScreenState extends State<RemoveMembersScreen> {
 
   static const int maxMembers = 20;
 
-  /// Normalize phone number for comparison
-  String _normalizePhoneNumber(String? phone) {
-    if (phone == null) return '';
-    return phone.replaceAll(RegExp(r'[^\d+]'), '');
-  }
-
   /// Check if a phone number is the current user
   bool _isCurrentUser(String phoneNumber) {
-    return _normalizePhoneNumber(phoneNumber) ==
-        _normalizePhoneNumber(widget.currentUserPhone);
+    final normalizedPhone = PhoneNumberUtils.tryNormalizePhoneNumber(
+      phoneNumber,
+    );
+    final normalizedCurrentUser = PhoneNumberUtils.tryNormalizePhoneNumber(
+      widget.currentUserPhone,
+    );
+    return normalizedPhone != null &&
+        normalizedCurrentUser != null &&
+        normalizedPhone == normalizedCurrentUser;
   }
 
   /// Check if a phone number is the admin
   bool _isAdmin(String phoneNumber) {
     if (widget.adminPhoneNumber == null) return false;
-    return _normalizePhoneNumber(phoneNumber) ==
-        _normalizePhoneNumber(widget.adminPhoneNumber);
+    final normalizedPhone = PhoneNumberUtils.tryNormalizePhoneNumber(
+      phoneNumber,
+    );
+    final normalizedAdmin = PhoneNumberUtils.tryNormalizePhoneNumber(
+      widget.adminPhoneNumber!,
+    );
+    return normalizedPhone != null &&
+        normalizedAdmin != null &&
+        normalizedPhone == normalizedAdmin;
   }
 
   bool _canRemoveMore() {

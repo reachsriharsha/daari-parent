@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/backend_com_service.dart';
+import '../utils/phone_number_utils.dart';
 import 'add_members_screen.dart';
 import 'remove_members_screen.dart';
 import 'delete_group_dialog.dart';
@@ -114,25 +115,32 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
     );
   }
 
-  /// Normalize phone number for comparison (handles format variations)
-  String _normalizePhoneNumber(String? phone) {
-    if (phone == null) return '';
-    // Remove all non-digit and non-plus characters
-    return phone.replaceAll(RegExp(r'[^\d+]'), '');
-  }
-
   /// Check if a phone number matches admin
   bool _isAdminPhone(String phoneNumber) {
     if (widget.adminPhoneNumber == null) return false;
-    return _normalizePhoneNumber(phoneNumber) ==
-        _normalizePhoneNumber(widget.adminPhoneNumber);
+    final normalizedPhone = PhoneNumberUtils.tryNormalizePhoneNumber(
+      phoneNumber,
+    );
+    final normalizedAdmin = PhoneNumberUtils.tryNormalizePhoneNumber(
+      widget.adminPhoneNumber!,
+    );
+    return normalizedPhone != null &&
+        normalizedAdmin != null &&
+        normalizedPhone == normalizedAdmin;
   }
 
   /// Check if a phone number matches driver
   bool _isDriverPhone(String phoneNumber) {
     if (_currentDriverPhone == null) return false;
-    return _normalizePhoneNumber(phoneNumber) ==
-        _normalizePhoneNumber(_currentDriverPhone);
+    final normalizedPhone = PhoneNumberUtils.tryNormalizePhoneNumber(
+      phoneNumber,
+    );
+    final normalizedDriver = PhoneNumberUtils.tryNormalizePhoneNumber(
+      _currentDriverPhone!,
+    );
+    return normalizedPhone != null &&
+        normalizedDriver != null &&
+        normalizedPhone == normalizedDriver;
   }
 
   /// Get the role description for a member

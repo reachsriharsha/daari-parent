@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_contacts/flutter_contacts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'models/group_member_input.dart';
+import 'utils/phone_number_utils.dart';
 
 class SelectContactsPage extends StatefulWidget {
   final Function(List<GroupMemberInput>) onMembersSelected;
@@ -179,7 +180,12 @@ class _SelectContactsPageState extends State<SelectContactsPage> {
                                 c.phones.isNotEmpty &&
                                 c.phones.first.number.isNotEmpty &&
                                 (c.name.first.isNotEmpty ||
-                                    c.name.last.isNotEmpty),
+                                    c.name.last.isNotEmpty) &&
+                                // Only include contacts with valid phone numbers
+                                PhoneNumberUtils.tryNormalizePhoneNumber(
+                                      c.phones.first.number,
+                                    ) !=
+                                    null,
                           )
                           .toList();
 
@@ -213,9 +219,12 @@ class _SelectContactsPageState extends State<SelectContactsPage> {
                           final contact = filteredContacts[index];
                           final isSelected = selectedContacts.contains(contact);
                           final phone = contact.phones.first.number;
+                          final normalizedPhone =
+                              PhoneNumberUtils.tryNormalizePhoneNumber(phone);
+
                           return ListTile(
                             title: Text(contact.displayName),
-                            subtitle: Text(phone),
+                            subtitle: Text(normalizedPhone ?? phone),
                             trailing: isSelected
                                 ? const Icon(Icons.check_box)
                                 : const Icon(Icons.check_box_outline_blank),
@@ -234,16 +243,37 @@ class _SelectContactsPageState extends State<SelectContactsPage> {
             : () {
                 final members = selectedContacts
                     .where((c) => c.phones.isNotEmpty)
-                    .map(
-                      (c) => GroupMemberInput(
-                        phoneNumber: c.phones.first.number,
-                        firstName: c.name.first.isNotEmpty
-                            ? c.name.first
-                            : null,
-                        lastName: c.name.last.isNotEmpty ? c.name.last : null,
-                      ),
-                    )
+                    .map((c) {
+                      try {
+                        final normalizedPhone =
+                            PhoneNumberUtils.normalizePhoneNumber(
+                              c.phones.first.number,
+                            );
+                        return GroupMemberInput(
+                          phoneNumber: normalizedPhone,
+                          firstName: c.name.first.isNotEmpty
+                              ? c.name.first
+                              : null,
+                          lastName: c.name.last.isNotEmpty ? c.name.last : null,
+                        );
+                      } catch (e) {
+                        // Skip invalid phone numbers (should not happen due to filtering)
+                        return null;
+                      }
+                    })
+                    .whereType<GroupMemberInput>()
                     .toList();
+
+                if (members.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('No valid phone numbers selected'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                  return;
+                }
+
                 widget.onMembersSelected(members);
                 Navigator.pop(context);
               },
