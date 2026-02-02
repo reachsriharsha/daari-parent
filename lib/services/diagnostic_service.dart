@@ -4,6 +4,7 @@ import 'package:archive/archive_io.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:intl/intl.dart';
 import '../main.dart'; // To access storageService
 import '../utils/app_logger.dart';
 
@@ -135,12 +136,12 @@ class DiagnosticService {
         return;
       }
 
-      // Sort by modification time (newest first) and take last 3
+      // Sort by modification time (newest first) and take last 5
       logFiles.sort(
         (a, b) => b.statSync().modified.compareTo(a.statSync().modified),
       );
 
-      final logsToInclude = logFiles.take(3).toList();
+      final logsToInclude = logFiles.take(5).toList();
 
       for (var i = 0; i < logsToInclude.length; i++) {
         final logFile = logsToInclude[i];
@@ -215,8 +216,14 @@ class DiagnosticService {
       logger.debug('[DIAGNOSTICS] Creating ZIP archive...');
 
       final tempDir = await getTemporaryDirectory();
-      final timestamp = DateTime.now().toIso8601String().replaceAll(':', '-');
-      final zipFilePath = '${tempDir.path}/diagnostics_$timestamp.zip';
+
+      // Get profId for filename
+      final settings = storageService.getAppSettings();
+      final profId = settings?.profId?.replaceAll('usr_', '') ?? 'unknown';
+
+      // Format: parent_{profId}_{timestamp}.zip
+      final timestamp = DateFormat('yyyyMMdd_HHmmss').format(DateTime.now());
+      final zipFilePath = '${tempDir.path}/parent_${profId}_$timestamp.zip';
 
       // Create encoder
       final encoder = ZipFileEncoder();

@@ -115,36 +115,36 @@ class CustomLogPrinter extends PrettyPrinter {
         errorMethodCount: 8,
         lineLength: 120,
         colors: true,
-        printEmojis: true,
+        printEmojis: false,
         printTime: true,
       );
 
   @override
   List<String> log(LogEvent event) {
     final color = PrettyPrinter.defaultLevelColors[event.level];
-    final emoji = PrettyPrinter.defaultLevelEmojis[event.level];
     final timestamp = DateFormat(
       'yyyy-MM-dd HH:mm:ss.SSS',
     ).format(DateTime.now());
 
     final List<String> output = [];
 
-    // Add timestamp and level
-    output.add(
-      color!('$emoji [$timestamp] [${event.level.name.toUpperCase()}]'),
-    );
+    // Build single-line log message
+    final messageBuffer = StringBuffer();
+    messageBuffer.write('[$timestamp] [${event.level.name.toUpperCase()}]');
 
-    // Add message
     if (event.message != null) {
-      output.add(color(event.message.toString()));
+      messageBuffer.write(' ${event.message}');
     }
 
-    // Add error if present
+    // Add the single-line message
+    output.add(color!(messageBuffer.toString()));
+
+    // Add error if present (separate line for errors)
     if (event.error != null) {
       output.add(color('Error: ${event.error}'));
     }
 
-    // Add stack trace if present
+    // Add stack trace if present (separate lines for stack trace)
     if (event.stackTrace != null) {
       output.add(color('Stack trace:'));
       final stackLines = event.stackTrace.toString().split('\n');
@@ -153,7 +153,10 @@ class CustomLogPrinter extends PrettyPrinter {
       }
     }
 
-    output.add(color('─' * 120));
+    // Only add separator after errors/stack traces, not for normal logs
+    if (event.error != null || event.stackTrace != null) {
+      output.add(color('─' * 120));
+    }
 
     return output;
   }
