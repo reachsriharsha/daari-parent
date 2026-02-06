@@ -22,12 +22,12 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController otpController = TextEditingController();
   final TextEditingController ngrokController = TextEditingController();
   bool otpSent = false;
+  final String _countryCode = '+91'; // Fixed country code
 
   @override
   void initState() {
     super.initState();
-    // Set India's country code as default
-    phoneController.text = '+91';
+    // No need to set phoneController.text since country code is separate
   }
 
   /// Request location permission if not already granted
@@ -133,14 +133,68 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                     ),
                     SizedBox(height: 20),
-                    TextField(
-                      controller: phoneController,
-                      keyboardType: TextInputType.phone,
-                      decoration: InputDecoration(
-                        labelText: 'Phone Number (with country code)',
-                        hintText: '+91XXXXXXXXXX',
-                        border: OutlineInputBorder(),
-                      ),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Country code dropdown (non-editable, India only)
+                        SizedBox(
+                          height: 56,
+                          child: Container(
+                            padding: EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            alignment: Alignment.center,
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<String>(
+                                value: _countryCode,
+                                isDense: true,
+                                items: [
+                                  DropdownMenuItem(
+                                    value: '+91',
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          '🇮🇳',
+                                          style: TextStyle(fontSize: 20),
+                                        ),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          '+91',
+                                          style: TextStyle(fontSize: 16),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                                onChanged: null, // Disable changing
+                              ),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        // Phone number field
+                        Expanded(
+                          child: SizedBox(
+                            height: 56,
+                            child: TextField(
+                              controller: phoneController,
+                              keyboardType: TextInputType.phone,
+                              decoration: InputDecoration(
+                                labelText: 'Phone Number',
+                                hintText: 'XXXXXXXXXX',
+                                border: OutlineInputBorder(),
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 16,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     SizedBox(height: 20),
                     ElevatedButton(
@@ -151,8 +205,11 @@ class _LoginPageState extends State<LoginPage> {
                             : ngrokController.text.trim();
 
                         final otpService = OtpService(backendUrl: backendUrl);
+                        // Concatenate country code with phone number
+                        final fullPhoneNumber =
+                            _countryCode + phoneController.text.trim();
                         await otpService.sendOtp(
-                          phoneNumber: phoneController.text.trim(),
+                          phoneNumber: fullPhoneNumber,
                           onCodeSent: (id) {
                             setState(() {
                               verificationId = id;
