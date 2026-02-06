@@ -1,6 +1,7 @@
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'dart:io';
+import 'package:path/path.dart' as path;
 import '../main.dart'; // To access storageService
 import '../models/group_member_input.dart';
 import '../utils/app_logger.dart';
@@ -317,7 +318,7 @@ class BackendComService {
           'file',
           fileStream,
           fileLength,
-          filename: 'diagnostics.zip',
+          filename: path.basename(zipFile.path),
         ),
       );
 
