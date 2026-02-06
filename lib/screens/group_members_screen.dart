@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/backend_com_service.dart';
+import '../services/contact_sync_service.dart';
 import '../utils/phone_number_utils.dart';
 import 'add_members_screen.dart';
 import 'remove_members_screen.dart';
@@ -32,6 +33,7 @@ class GroupMembersScreen extends StatefulWidget {
 }
 
 class _GroupMembersScreenState extends State<GroupMembersScreen> {
+  final ContactSyncService _contactSync = ContactSyncService();
   String? _currentDriverPhone;
   bool _isLoading = false;
 
@@ -39,6 +41,7 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
   void initState() {
     super.initState();
     _currentDriverPhone = widget.currentDriverPhone;
+    _contactSync.initialize();
   }
 
   /// Check if current user can assign driver (admin only)
@@ -397,6 +400,30 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
                       final isAdmin = _isAdminPhone(phoneNumber);
                       final isDriver = _isDriverPhone(phoneNumber);
 
+                      // Get contact name from sync service
+                      final contactName = _contactSync.getContactName(
+                        widget.groupId,
+                        phoneNumber,
+                      );
+
+                      // Format display name
+                      final displayName = contactName ?? phoneNumber;
+
+                      // Get initials for avatar (if contact name available)
+                      String? initials;
+                      if (contactName != null && contactName.isNotEmpty) {
+                        if (contactName.contains(' ')) {
+                          final parts = contactName.split(' ');
+                          initials =
+                              parts[0][0].toUpperCase() +
+                              (parts.length > 1
+                                  ? parts[1][0].toUpperCase()
+                                  : '');
+                        } else {
+                          initials = contactName.substring(0, 1).toUpperCase();
+                        }
+                      }
+
                       return Card(
                         margin: const EdgeInsets.symmetric(
                           horizontal: 0,
@@ -446,6 +473,15 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
                                         color: Colors.deepOrange[800],
                                         size: 18,
                                       )
+                                    : initials != null
+                                    ? Text(
+                                        initials,
+                                        style: TextStyle(
+                                          color: Colors.deepPurple[800],
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                        ),
+                                      )
                                     : Text(
                                         '${index + 1}',
                                         style: TextStyle(
@@ -462,13 +498,12 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    // Phone number and actions row
+                                    // Display name (contact name or phone)
                                     Row(
                                       children: [
-                                        // Phone number
                                         Expanded(
                                           child: Text(
-                                            phoneNumber,
+                                            displayName,
                                             style: TextStyle(
                                               fontSize: 14,
                                               fontWeight: FontWeight.w600,
@@ -476,7 +511,25 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
                                             ),
                                           ),
                                         ),
-                                        // Action buttons row
+                                      ],
+                                    ),
+                                    // Phone number as subtitle (only if contact name exists)
+                                    if (contactName != null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 2),
+                                        child: Text(
+                                          phoneNumber,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                      ),
+                                    // Action buttons row
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        // Action buttons
                                         IconButton(
                                           icon: const Icon(
                                             Icons.copy,
@@ -554,17 +607,9 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
                                       ],
                                     ),
                                     const SizedBox(height: 3),
-                                    // Name and badges row
+                                    // Role badges row
                                     Row(
                                       children: [
-                                        Text(
-                                          'Member ${index + 1}',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey[600],
-                                          ),
-                                        ),
-                                        const SizedBox(width: 8),
                                         // Badges
                                         if (isAdmin)
                                           Container(

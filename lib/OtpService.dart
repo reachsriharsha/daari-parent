@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'main.dart'; // To access storageService
 import 'services/backend_com_service.dart';
 import 'services/fcm_service.dart';
+import 'services/contact_sync_service.dart';
 import 'utils/app_logger.dart';
 
 class OtpService {
@@ -107,6 +108,22 @@ class OtpService {
           'Removed=${syncResult['removed']}, Updated=${syncResult['updated']}, '
           'Total=${syncResult['total']}',
         );
+
+        // 5.5) Sync contact names for group members
+        try {
+          final groups = await storageService.getAllGroups();
+          final contactSync = ContactSyncService();
+          await contactSync.initialize();
+
+          final contactResult = await contactSync.syncContactsForGroups(groups);
+          logger.debug(
+            '[AUTH] Contact sync complete: Matched=${contactResult['matched']}/'
+            '${contactResult['total']} members',
+          );
+        } catch (e) {
+          logger.error('[AUTH ERROR] Contact sync failed: $e');
+          // Don't fail login if contact sync fails
+        }
       } else {
         logger.debug('[AUTH] No group_list in backend response, skipping sync');
       }

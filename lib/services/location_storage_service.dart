@@ -5,6 +5,7 @@ import '../models/trip_settings.dart';
 import '../models/app_settings.dart';
 import '../models/group.dart';
 import '../models/user_profile.dart';
+import '../models/group_member_name.dart';
 import '../utils/app_logger.dart';
 
 /// Service for managing location points and trip state in Hive
@@ -40,6 +41,9 @@ class LocationStorageService {
       }
       if (!Hive.isAdapterRegistered(10)) {
         Hive.registerAdapter(UserProfileAdapter());
+      }
+      if (!Hive.isAdapterRegistered(7)) {
+        Hive.registerAdapter(GroupMemberNameAdapter());
       }
 
       // Open boxes

@@ -9,6 +9,7 @@ import '../widgets/status_widget.dart';
 import '../utils/app_logger.dart';
 import 'announcement_service.dart';
 import 'backend_com_service.dart';
+import 'contact_sync_service.dart';
 
 /// Global NavigatorKey for navigation from background handlers
 final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
@@ -53,8 +54,12 @@ class FCMNotificationHandler {
           _updateTripUI(data);
 
           // Announce trip start - load group name from Hive (not in FCM to reduce payload)
-          final startGroupName = await _getGroupNameFromStorage(data['group_id']);
-          await announcementService.announce('Trip started for $startGroupName');
+          final startGroupName = await _getGroupNameFromStorage(
+            data['group_id'],
+          );
+          await announcementService.announce(
+            'Trip started for $startGroupName',
+          );
           break;
 
         case 'trip_updated':
@@ -113,7 +118,9 @@ class FCMNotificationHandler {
         // Could save to Hive here for later UI update
       } else if (type == 'group_refresh') {
         // DES-GRP006: Handle group refresh in background
-        logger.debug('[FCM] Group refresh in background - will sync on foreground');
+        logger.debug(
+          '[FCM] Group refresh in background - will sync on foreground',
+        );
         // Flag for refresh on next foreground - handled by _pendingGroupRefresh
         _pendingGroupRefresh = true;
       }
@@ -135,6 +142,23 @@ class FCMNotificationHandler {
 
       if (response['status'] == 'success') {
         logger.info('[FCM] Group data refreshed successfully');
+
+        // Re-sync contact names after group refresh
+        try {
+          final groups = await storageService.getAllGroups();
+          final contactSync = ContactSyncService();
+          await contactSync.initialize();
+
+          final contactResult = await contactSync.syncContactsForGroups(groups);
+          logger.info(
+            '[FCM] Contact sync: ${contactResult['matched']}/'
+            '${contactResult['total']} matched',
+          );
+        } catch (e) {
+          logger.error('[FCM ERROR] Contact sync failed: $e');
+          // Don't fail refresh if contact sync fails
+        }
+
         // UI will automatically update since Hive storage was synced
       } else {
         logger.warning('[FCM] Group refresh returned non-success status');
@@ -371,9 +395,10 @@ class FCMNotificationHandler {
       logger.info(
         '[FCM] Saved FCM point to storage: ${data.eventType} at ${data.latitude}, ${data.longitude} for group ${data.groupId}',
       );
-
     } catch (e) {
-      logger.error('[FCM ERROR] Failed to save trip data without controller: $e');
+      logger.error(
+        '[FCM ERROR] Failed to save trip data without controller: $e',
+      );
     }
   }
 }
