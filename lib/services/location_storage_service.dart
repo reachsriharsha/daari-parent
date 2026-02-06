@@ -4,6 +4,7 @@ import '../models/location_point.dart';
 import '../models/trip_settings.dart';
 import '../models/app_settings.dart';
 import '../models/group.dart';
+import '../models/user_profile.dart';
 import '../utils/app_logger.dart';
 
 /// Service for managing location points and trip state in Hive
@@ -37,6 +38,9 @@ class LocationStorageService {
       if (!Hive.isAdapterRegistered(3)) {
         Hive.registerAdapter(GroupAdapter());
       }
+      if (!Hive.isAdapterRegistered(10)) {
+        Hive.registerAdapter(UserProfileAdapter());
+      }
 
       // Open boxes
       _locationBox = await Hive.openBox<LocationPoint>(_locationBoxName);
@@ -52,6 +56,16 @@ class LocationStorageService {
       await deleteOldPoints();
     } catch (e) {
       logger.error('[HIVE ERROR] Error initializing Hive: $e');
+      rethrow;
+    }
+  }
+
+  /// Open a generic Hive box by name
+  Future<Box> openBox(String boxName) async {
+    try {
+      return await Hive.openBox(boxName);
+    } catch (e) {
+      logger.error('[HIVE ERROR] Error opening box $boxName: $e');
       rethrow;
     }
   }

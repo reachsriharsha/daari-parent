@@ -8,6 +8,7 @@ import 'main.dart'; // To access storageService
 import 'models/group_member_input.dart';
 import 'widgets/status_widget.dart';
 import 'screens/log_viewer_screen.dart';
+import 'screens/profile_page.dart';
 import 'login_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -243,10 +244,17 @@ class _HomePageState extends State<HomePage> {
             },
           ),
           PopupMenuButton<String>(
-            icon: const Icon(Icons.more_vert),
-            tooltip: 'More options',
+            icon: const Icon(Icons.account_circle),
+            tooltip: 'Profile',
             onSelected: (value) {
-              if (value == 'debug_logs') {
+              if (value == 'profile') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ProfilePage(),
+                  ),
+                );
+              } else if (value == 'debug_logs') {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -260,6 +268,16 @@ class _HomePageState extends State<HomePage> {
               }
             },
             itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'profile',
+                child: Row(
+                  children: [
+                    Icon(Icons.person, size: 20),
+                    SizedBox(width: 12),
+                    Text('Profile'),
+                  ],
+                ),
+              ),
               const PopupMenuItem(
                 value: 'settings',
                 child: Row(
