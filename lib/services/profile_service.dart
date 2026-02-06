@@ -25,11 +25,17 @@ class ProfileService {
       final box = await storageService.openBox('app_settings');
       final profileData = box.get(_profileCacheKey);
 
-      logger.debug('[PROFILE] Getting cached profile, key: $_profileCacheKey, data: $profileData');
+      logger.debug(
+        '[PROFILE] Getting cached profile, key: $_profileCacheKey, data: $profileData',
+      );
 
       if (profileData != null && profileData is Map) {
-        final profile = UserProfile.fromJson(Map<String, dynamic>.from(profileData));
-        logger.debug('[PROFILE] Successfully loaded cached profile: ${profile.firstName} ${profile.lastName}');
+        final profile = UserProfile.fromJson(
+          Map<String, dynamic>.from(profileData),
+        );
+        logger.debug(
+          '[PROFILE] Successfully loaded cached profile: ${profile.firstName} ${profile.lastName}',
+        );
         return profile;
       }
       logger.debug('[PROFILE] No cached profile found');
@@ -62,13 +68,21 @@ class ProfileService {
       }
 
       // No cached profile found - create empty profile
-      logger.debug('[PROFILE] No cached profile found, creating new empty profile');
+      logger.debug(
+        '[PROFILE] No cached profile found, creating new empty profile',
+      );
+
+      // Try to get name and email from AppSettings (from login response)
+      final firstName = storageService.getFirstName();
+      final lastName = storageService.getLastName();
+      final email = storageService.getEmail();
+
       final profile = UserProfile(
         profId: profId,
         phoneNumber: phoneNumber,
-        firstName: null,
-        lastName: null,
-        email: null,
+        firstName: firstName,
+        lastName: lastName,
+        email: email,
         lastUpdated: DateTime.now(),
       );
 
@@ -116,7 +130,9 @@ class ProfileService {
           homeCoordinates == null &&
           (trimmedHomeAddress == null || trimmedHomeAddress.isEmpty) &&
           (trimmedHomePlaceName == null || trimmedHomePlaceName.isEmpty)) {
-        throw ValidationException('Please provide at least one field to update');
+        throw ValidationException(
+          'Please provide at least one field to update',
+        );
       }
 
       // Name validation: if both are being updated, at least one should be non-empty
@@ -124,7 +140,8 @@ class ProfileService {
           (trimmedFirstName == null || trimmedFirstName.isEmpty) &&
           (trimmedLastName == null || trimmedLastName.isEmpty)) {
         throw ValidationException(
-            'Please provide at least a first name or last name');
+          'Please provide at least a first name or last name',
+        );
       }
 
       if (trimmedEmail != null && trimmedEmail.isNotEmpty) {
@@ -144,9 +161,7 @@ class ProfileService {
       final url = Uri.parse("$baseUrl/api/users/update/");
 
       // Prepare request body
-      final Map<String, dynamic> requestBody = {
-        'prof_id': profId,
-      };
+      final Map<String, dynamic> requestBody = {'prof_id': profId};
 
       if (trimmedFirstName != null && trimmedFirstName.isNotEmpty) {
         requestBody['first_name'] = trimmedFirstName;
@@ -182,7 +197,8 @@ class ProfileService {
       );
 
       logger.debug(
-          '[API Response Status] ${response.statusCode} Body: ${response.body}');
+        '[API Response Status] ${response.statusCode} Body: ${response.body}',
+      );
 
       if (response.statusCode == 200) {
         // Update cache
@@ -198,6 +214,17 @@ class ProfileService {
         );
         await _cacheProfile(updatedProfile);
 
+        // Also save to AppSettings for persistence
+        if (trimmedFirstName != null) {
+          await storageService.saveFirstName(trimmedFirstName);
+        }
+        if (trimmedLastName != null) {
+          await storageService.saveLastName(trimmedLastName);
+        }
+        if (trimmedEmail != null) {
+          await storageService.saveEmail(trimmedEmail);
+        }
+
         logger.info('[PROFILE] ✅ Profile updated successfully');
         showMessageInStatus("success", "Profile updated successfully");
         return true;
@@ -208,8 +235,7 @@ class ProfileService {
         throw Exception('Session expired. Please login again.');
       } else {
         final errorBody = jsonDecode(response.body);
-        final errorMessage =
-            errorBody['detail'] ?? 'Failed to update profile';
+        final errorMessage = errorBody['detail'] ?? 'Failed to update profile';
         showMessageInStatus("error", errorMessage);
         throw Exception(errorMessage);
       }
@@ -227,9 +253,13 @@ class ProfileService {
     try {
       final box = await storageService.openBox('app_settings');
       final profileJson = profile.toJson();
-      logger.debug('[PROFILE] Caching profile for ${profile.profId}: $profileJson');
+      logger.debug(
+        '[PROFILE] Caching profile for ${profile.profId}: $profileJson',
+      );
       await box.put(_profileCacheKey, profileJson);
-      logger.debug('[PROFILE] ✅ Successfully cached profile for ${profile.profId}');
+      logger.debug(
+        '[PROFILE] ✅ Successfully cached profile for ${profile.profId}',
+      );
 
       // Verify it was saved
       final verifyData = box.get(_profileCacheKey);

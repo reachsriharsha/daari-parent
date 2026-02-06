@@ -508,6 +508,72 @@ class LocationStorageService {
     }
   }
 
+  /// Save first name
+  Future<bool> saveFirstName(String firstName) async {
+    try {
+      var settings = getAppSettings() ?? AppSettings();
+      settings.firstName = firstName;
+      return await saveAppSettings(settings);
+    } catch (e) {
+      logger.error('[HIVE ERROR] Error saving first name: $e');
+      return false;
+    }
+  }
+
+  /// Get first name
+  String? getFirstName() {
+    try {
+      return getAppSettings()?.firstName;
+    } catch (e) {
+      logger.error('[HIVE ERROR] Error getting first name: $e');
+      return null;
+    }
+  }
+
+  /// Save last name
+  Future<bool> saveLastName(String lastName) async {
+    try {
+      var settings = getAppSettings() ?? AppSettings();
+      settings.lastName = lastName;
+      return await saveAppSettings(settings);
+    } catch (e) {
+      logger.error('[HIVE ERROR] Error saving last name: $e');
+      return false;
+    }
+  }
+
+  /// Get last name
+  String? getLastName() {
+    try {
+      return getAppSettings()?.lastName;
+    } catch (e) {
+      logger.error('[HIVE ERROR] Error getting last name: $e');
+      return null;
+    }
+  }
+
+  /// Save email
+  Future<bool> saveEmail(String email) async {
+    try {
+      var settings = getAppSettings() ?? AppSettings();
+      settings.email = email;
+      return await saveAppSettings(settings);
+    } catch (e) {
+      logger.error('[HIVE ERROR] Error saving email: $e');
+      return false;
+    }
+  }
+
+  /// Get email
+  String? getEmail() {
+    try {
+      return getAppSettings()?.email;
+    } catch (e) {
+      logger.error('[HIVE ERROR] Error getting email: $e');
+      return null;
+    }
+  }
+
   /// Save FCM token
   Future<bool> saveFcmToken(String token) async {
     try {

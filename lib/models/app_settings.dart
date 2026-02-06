@@ -31,6 +31,15 @@ class AppSettings extends HiveObject {
   @HiveField(9)
   DateTime? lastLoginTimestamp;
 
+  @HiveField(10)
+  String? firstName;
+
+  @HiveField(11)
+  String? lastName;
+
+  @HiveField(12)
+  String? email;
+
   AppSettings({
     this.ngrokUrl,
     this.profId,
@@ -41,6 +50,9 @@ class AppSettings extends HiveObject {
     this.homeAddress,
     this.homePlaceName,
     this.lastLoginTimestamp,
+    this.firstName,
+    this.lastName,
+    this.email,
   });
 
   // Helper method to clear all settings
@@ -54,6 +66,9 @@ class AppSettings extends HiveObject {
     homeAddress = null;
     homePlaceName = null;
     lastLoginTimestamp = null;
+    firstName = null;
+    lastName = null;
+    email = null;
   }
 
   @override

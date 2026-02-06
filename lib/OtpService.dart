@@ -82,6 +82,17 @@ class OtpService {
       await storageService.saveProfId(backendResponse["prof_id"]);
       await storageService.saveNgrokUrl(backendUrl);
 
+      // Save user name and email if present in response
+      if (backendResponse["first_name"] != null) {
+        await storageService.saveFirstName(backendResponse["first_name"]);
+      }
+      if (backendResponse["last_name"] != null) {
+        await storageService.saveLastName(backendResponse["last_name"]);
+      }
+      if (backendResponse["email"] != null) {
+        await storageService.saveEmail(backendResponse["email"]);
+      }
+
       // 5) Sync groups from backend with local Hive storage
       final groupList = backendResponse["group_list"];
       if (groupList != null) {
