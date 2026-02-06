@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../services/backend_com_service.dart';
 import '../utils/phone_number_utils.dart';
 import 'add_members_screen.dart';
@@ -115,6 +116,23 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
     );
   }
 
+  /// Launch phone dialer to call the number
+  Future<void> _callPhoneNumber(String phoneNumber) async {
+    final Uri telUri = Uri(scheme: 'tel', path: phoneNumber);
+    if (await canLaunchUrl(telUri)) {
+      await launchUrl(telUri);
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Cannot call $phoneNumber'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   /// Check if a phone number matches admin
   bool _isAdminPhone(String phoneNumber) {
     if (widget.adminPhoneNumber == null) return false;
@@ -141,15 +159,6 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
     return normalizedPhone != null &&
         normalizedDriver != null &&
         normalizedPhone == normalizedDriver;
-  }
-
-  /// Get the role description for a member
-  String _getMemberRole(String phoneNumber) {
-    final roles = <String>[];
-    if (_isAdminPhone(phoneNumber)) roles.add('Admin');
-    if (_isDriverPhone(phoneNumber)) roles.add('Driver');
-    if (roles.isEmpty) return 'Member';
-    return roles.join(' & ');
   }
 
   /// Navigate to add members screen (DES-GRP003)
@@ -241,46 +250,6 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
             )
           : Column(
               children: [
-                // Header with member count
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16.0),
-                  color: Colors.purple[50],
-                  child: Row(
-                    children: [
-                      Icon(Icons.group, color: Colors.deepPurple),
-                      const SizedBox(width: 12),
-                      Text(
-                        '${members.length} ${members.length == 1 ? 'Member' : 'Members'}',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      if (widget.isAdmin) ...[
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.deepPurple,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text(
-                            'You\'re Admin',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
                 // Members list and operations in a single scrollable view
                 Expanded(
                   child: ListView.builder(
@@ -425,151 +394,250 @@ class _GroupMembersScreenState extends State<GroupMembersScreen> {
 
                       // Member list item
                       final phoneNumber = members[index];
-                      return Column(
-                        children: [
-                          ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: Colors.deepPurple[100],
-                              child: Text(
-                                '${index + 1}',
-                                style: TextStyle(
-                                  color: Colors.deepPurple[900],
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            title: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    phoneNumber,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                                // Admin badge
-                                if (_isAdminPhone(phoneNumber))
-                                  Container(
-                                    margin: const EdgeInsets.only(left: 8),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.orange[700],
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: const [
-                                        Icon(
-                                          Icons.admin_panel_settings,
-                                          color: Colors.white,
-                                          size: 14,
-                                        ),
-                                        SizedBox(width: 4),
-                                        Text(
-                                          'Admin',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                // Driver badge
-                                if (_isDriverPhone(phoneNumber))
-                                  Container(
-                                    margin: const EdgeInsets.only(left: 8),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 4,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Colors.blue[700],
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: const [
-                                        Icon(
-                                          Icons.drive_eta,
-                                          color: Colors.white,
-                                          size: 14,
-                                        ),
-                                        SizedBox(width: 4),
-                                        Text(
-                                          'Driver',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            subtitle: Text(
-                              _getMemberRole(phoneNumber),
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
-                              ),
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                // Copy button
-                                IconButton(
-                                  icon: const Icon(Icons.copy, size: 20),
-                                  color: Colors.grey[600],
-                                  tooltip: 'Copy phone number',
-                                  onPressed: () {
-                                    _copyPhoneNumber(context, phoneNumber);
-                                  },
-                                ),
-                                // Three-dot menu (admin only)
-                                if (_canAssignDriver())
-                                  PopupMenuButton<String>(
-                                    icon: Icon(
-                                      Icons.more_vert,
-                                      color: Colors.grey[600],
-                                    ),
-                                    tooltip: 'More options',
-                                    enabled: !_isLoading,
-                                    onSelected: (value) {
-                                      if (value == 'set_driver') {
-                                        _confirmAssignDriver(phoneNumber);
-                                      }
-                                    },
-                                    itemBuilder: (context) => [
-                                      PopupMenuItem(
-                                        value: 'set_driver',
-                                        child: Row(
-                                          children: [
-                                            Icon(
-                                              Icons.drive_eta,
-                                              size: 20,
-                                              color: Colors.deepOrange[700],
-                                            ),
-                                            const SizedBox(width: 12),
-                                            const Text('Set as Driver'),
-                                          ],
+                      final isAdmin = _isAdminPhone(phoneNumber);
+                      final isDriver = _isDriverPhone(phoneNumber);
+
+                      return Card(
+                        margin: const EdgeInsets.symmetric(
+                          horizontal: 0,
+                          vertical: 6,
+                        ),
+                        elevation: (isDriver || isAdmin) ? 2 : 1,
+                        color: isAdmin
+                            ? Colors.blue[50]
+                            : isDriver
+                            ? Colors.orange[50]
+                            : null,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: isAdmin
+                              ? BorderSide(color: Colors.blue[200]!, width: 1.5)
+                              : isDriver
+                              ? BorderSide(
+                                  color: Colors.deepOrange[200]!,
+                                  width: 1.5,
+                                )
+                              : BorderSide.none,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12.0,
+                            vertical: 8.0,
+                          ),
+                          child: Row(
+                            children: [
+                              // Avatar/Index
+                              CircleAvatar(
+                                radius: 18,
+                                backgroundColor: isAdmin
+                                    ? Colors.blue[100]
+                                    : isDriver
+                                    ? Colors.deepOrange[100]
+                                    : Colors.deepPurple[100],
+                                child: isAdmin
+                                    ? Icon(
+                                        Icons.admin_panel_settings,
+                                        color: Colors.blue[800],
+                                        size: 18,
+                                      )
+                                    : isDriver
+                                    ? Icon(
+                                        Icons.drive_eta,
+                                        color: Colors.deepOrange[800],
+                                        size: 18,
+                                      )
+                                    : Text(
+                                        '${index + 1}',
+                                        style: TextStyle(
+                                          color: Colors.deepPurple[800],
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
                                         ),
                                       ),
-                                    ],
-                                  ),
-                              ],
-                            ),
+                              ),
+                              const SizedBox(width: 10),
+                              // Main content column
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    // Phone number and actions row
+                                    Row(
+                                      children: [
+                                        // Phone number
+                                        Expanded(
+                                          child: Text(
+                                            phoneNumber,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: Colors.black87,
+                                            ),
+                                          ),
+                                        ),
+                                        // Action buttons row
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.copy,
+                                            size: 18,
+                                          ),
+                                          color: Colors.grey[600],
+                                          tooltip: 'Copy',
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(
+                                            minWidth: 32,
+                                            minHeight: 32,
+                                          ),
+                                          onPressed: () {
+                                            _copyPhoneNumber(
+                                              context,
+                                              phoneNumber,
+                                            );
+                                          },
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(
+                                            Icons.phone,
+                                            size: 18,
+                                          ),
+                                          color: Colors.green[600],
+                                          tooltip: 'Call',
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(
+                                            minWidth: 32,
+                                            minHeight: 32,
+                                          ),
+                                          onPressed: () {
+                                            _callPhoneNumber(phoneNumber);
+                                          },
+                                        ),
+                                        if (_canAssignDriver())
+                                          PopupMenuButton<String>(
+                                            icon: Icon(
+                                              Icons.more_vert,
+                                              color: Colors.grey[600],
+                                              size: 18,
+                                            ),
+                                            tooltip: 'More',
+                                            padding: EdgeInsets.zero,
+                                            constraints: const BoxConstraints(
+                                              minWidth: 32,
+                                              minHeight: 32,
+                                            ),
+                                            enabled: !_isLoading,
+                                            onSelected: (value) {
+                                              if (value == 'set_driver') {
+                                                _confirmAssignDriver(
+                                                  phoneNumber,
+                                                );
+                                              }
+                                            },
+                                            itemBuilder: (context) => [
+                                              PopupMenuItem(
+                                                value: 'set_driver',
+                                                child: Row(
+                                                  children: [
+                                                    Icon(
+                                                      Icons.drive_eta,
+                                                      size: 18,
+                                                      color: Colors
+                                                          .deepOrange[700],
+                                                    ),
+                                                    const SizedBox(width: 8),
+                                                    const Text('Set as Driver'),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 3),
+                                    // Name and badges row
+                                    Row(
+                                      children: [
+                                        Text(
+                                          'Member ${index + 1}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        // Badges
+                                        if (isAdmin)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.blue[700],
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: const [
+                                                Icon(
+                                                  Icons.admin_panel_settings,
+                                                  color: Colors.white,
+                                                  size: 10,
+                                                ),
+                                                SizedBox(width: 3),
+                                                Text(
+                                                  'ADMIN',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 9,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        if (isAdmin && isDriver)
+                                          const SizedBox(width: 4),
+                                        if (isDriver)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 6,
+                                              vertical: 2,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.deepOrange[700],
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            child: Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: const [
+                                                Icon(
+                                                  Icons.drive_eta,
+                                                  color: Colors.white,
+                                                  size: 10,
+                                                ),
+                                                SizedBox(width: 3),
+                                                Text(
+                                                  'DRIVER',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 9,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                          if (index < members.length - 1) const Divider(),
-                        ],
+                        ),
                       );
                     },
                   ),

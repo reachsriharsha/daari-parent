@@ -78,6 +78,9 @@ dependencies:
   # Keep screen on during trip tracking
   wakelock_plus: ^1.2.8
 
+  # URL launcher for calling phone numbers
+  url_launcher: ^6.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
