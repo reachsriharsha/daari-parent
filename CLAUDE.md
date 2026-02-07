@@ -9,6 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Development Commands
 
 ### Setup
+
 ```bash
 # Install dependencies
 flutter pub get
@@ -18,6 +19,7 @@ flutter pub run build_runner build --delete-conflicting-outputs
 ```
 
 ### Running
+
 ```bash
 # Run on connected device/emulator
 flutter run
@@ -30,7 +32,16 @@ flutter build apk --debug
 flutter build apk --release
 ```
 
+### Compilation Verification
+
+**IMPORTANT**: After every code change, compile with the following command and ensure no errors are found:
+
+```bash
+flutter build apk --debug --target-platform android-arm64
+```
+
 ### Testing
+
 ```bash
 # Run all tests
 flutter test
@@ -46,12 +57,14 @@ The app uses a reactive, event-driven architecture with per-group state manageme
 ### Core Design Patterns
 
 **1. Per-Group TripViewerController Registry**
+
 - Global registry: `Map<int, TripViewerController> tripViewerControllers`
 - Each group has independent controller instance
 - FCM messages routed to correct controller by `group_id`
 - Supports parents with children in multiple schools simultaneously
 
 **2. Immutable State Pattern**
+
 - `TripViewingState` is fully immutable
 - All updates create new instances: `state.addPoint(newPoint)`
 - Predictable state transitions
@@ -59,12 +72,14 @@ The app uses a reactive, event-driven architecture with per-group state manageme
 - Works seamlessly with Flutter's rebuild model
 
 **3. FCM-Driven Architecture**
+
 - Backend pushes trip updates via Firebase Cloud Messaging
 - Three message types: `trip_started`, `trip_updated`, `trip_finished`
 - Handles foreground, background, and terminated app states
 - `trip_updated` are silent (data-only) to reduce notification fatigue
 
 **4. Proximity Announcement System**
+
 - Audio alerts when van approaches home location
 - Thresholds: 1km, 500m, 200m, 100m
 - One-time announcements per threshold using boolean flags
@@ -72,6 +87,7 @@ The app uses a reactive, event-driven architecture with per-group state manageme
 - Flags reset when trip finishes
 
 **5. Passive Location Tracking**
+
 - Parent app never uses GPS directly
 - All location data received via FCM from backend
 - No background services needed (unlike driver app)
@@ -80,19 +96,23 @@ The app uses a reactive, event-driven architecture with per-group state manageme
 ### Key File Locations
 
 **Entry Point & Core**
+
 - `lib/main.dart` - App initialization, Hive setup, controller registry, session routing
 - `lib/constants.dart` - App-wide constants and configuration values
 
 **Pages (Main Screens)**
+
 - `lib/login_page.dart` - Firebase phone auth, FCM token registration, ngrok URL config
 - `lib/home_page.dart` - Dashboard showing all groups, group creation
 - `lib/group_details_page.dart` - **Critical**: Trip viewing with map, status widget, announcements
 - `lib/select_contacts_page.dart` - Contact picker with phone validation
 
 **Controllers**
+
 - `lib/controllers/trip_viewer_controller.dart` - **Critical**: Per-group trip state, FCM message handling, proximity detection, map updates
 
 **Models**
+
 - `lib/models/trip_viewing_state.dart` - **Critical**: Immutable trip state with helper methods
 - `lib/models/trip_update_data.dart` - FCM payload parser
 - `lib/models/trip_status_data.dart` - Calculated trip statistics (elapsed time, distance, ETA)
@@ -102,6 +122,7 @@ The app uses a reactive, event-driven architecture with per-group state manageme
 - `lib/models/location_point.dart` - Hive model (TypeId: 0)
 
 **Services**
+
 - `lib/services/app_initializer.dart` - Service initialization orchestrator
 - `lib/services/backend_com_service.dart` - HTTP API client (singleton)
 - `lib/services/fcm_notification_handler.dart` - **Critical**: FCM message routing to controllers
@@ -110,17 +131,20 @@ The app uses a reactive, event-driven architecture with per-group state manageme
 - `lib/services/notification_service.dart` - Local notification display
 
 **Screens (Dialogs/Subpages)**
+
 - `lib/screens/group_members_screen.dart` - Member list, add/remove members, driver assignment
 - `lib/screens/add_members_screen.dart` - Add members workflow
 - `lib/screens/remove_members_screen.dart` - Remove members workflow with validation
 - `lib/screens/delete_group_dialog.dart` - Group deletion confirmation
 
 **Widgets**
+
 - `lib/widgets/trip_status_widget.dart` - Display elapsed time, distance, speed, ETA
 - `lib/widgets/status_widget.dart` - Global status message system
 - `lib/widgets/search_place_widget.dart` - Google Places autocomplete
 
 **Utilities**
+
 - `lib/utils/app_logger.dart` - Centralized logging with file output
 - `lib/utils/phone_number_utils.dart` - Phone validation/normalization to `+91XXXXXXXXXX`
 - `lib/utils/distance_calculator.dart` - Haversine distance calculations
@@ -144,6 +168,7 @@ IDLE
 ### FCM Message Handling
 
 **Message Payload Structure**
+
 ```json
 {
   "data": {
@@ -159,6 +184,7 @@ IDLE
 ```
 
 **App State Handling**
+
 - **Foreground**: `onMessage` listener → Parse → Route to controller → Update UI
 - **Background**: `firebaseMessagingBackgroundHandler` → System notification → Update on resume
 - **Terminated**: System shows notification → Tap opens app → `getInitialMessage()` → Navigate to group
@@ -199,16 +225,19 @@ Channels created at app startup via `FlutterLocalNotificationsPlugin`.
 ### Map Visualization
 
 **Markers**
+
 - 🟢 Green: Trip start location
 - 🔴 Red: Current driver location (animated)
 - 🔵 Blue: Destination (school)
 - 🏠 Custom: Child's home (if set)
 
 **Polylines**
+
 - Blue line connecting all points in `TripViewingState.points`
 - Width: 4.0, Color: Colors.blue
 
 **Camera Behavior**
+
 - Auto-follows driver location during active trip
 - Smooth animation via `CameraUpdate.newLatLng()`
 - Zoom level maintained by user preference
@@ -216,6 +245,7 @@ Channels created at app startup via `FlutterLocalNotificationsPlugin`.
 ### Trip Status Display
 
 Calculated from `TripViewingState`:
+
 - **Elapsed Time**: `now - startTime` → "00:15:32"
 - **Distance from Home**: `Geolocator.distanceBetween()` → "1.2 km"
 - **Current Speed**: `distance / time` → "25 km/h"
@@ -224,6 +254,7 @@ Calculated from `TripViewingState`:
 ### Phone Number Normalization
 
 All phone numbers must be normalized to `+91XXXXXXXXXX` format:
+
 - Use `PhoneNumberUtils.normalizePhoneNumber()` before API calls
 - Reject non-India numbers (only +91 supported)
 - Validation regex: `^\+91[6-9]\d{9}$`
@@ -232,6 +263,7 @@ All phone numbers must be normalized to `+91XXXXXXXXXX` format:
 ### Multi-Group Support
 
 Parents can have children in multiple schools:
+
 ```dart
 // Access pattern in main.dart
 TripViewerController getOrCreateController(int groupId) {
@@ -262,14 +294,14 @@ Each group maintains independent trip state. FCM handler routes messages to corr
 
 ### Differences from Driver App
 
-| Aspect             | Parent App       | Driver App       |
-|--------------------|------------------|------------------|
-| Location tracking  | Passive (FCM)    | Active (GPS)     |
-| Trip control       | View only        | Start/Finish     |
-| Background service | No (FCM only)    | Yes (location)   |
-| Notifications      | Receives via FCM | Sends via API    |
-| Multi-group trips  | View multiple    | One at a time    |
-| Announcements      | Proximity TTS    | None             |
+| Aspect             | Parent App       | Driver App     |
+| ------------------ | ---------------- | -------------- |
+| Location tracking  | Passive (FCM)    | Active (GPS)   |
+| Trip control       | View only        | Start/Finish   |
+| Background service | No (FCM only)    | Yes (location) |
+| Notifications      | Receives via FCM | Sends via API  |
+| Multi-group trips  | View multiple    | One at a time  |
+| Announcements      | Proximity TTS    | None           |
 
 ### Important Notes When Developing
 
@@ -287,6 +319,7 @@ Each group maintains independent trip state. FCM handler routes messages to corr
 ### Testing Critical Paths
 
 When testing, verify:
+
 1. **Multi-group handling**: Create/join multiple groups, receive updates for each
 2. **FCM in all states**: Test foreground, background, terminated message handling
 3. **Proximity announcements**: Test all thresholds, verify one-time-only behavior
