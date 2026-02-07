@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'select_contacts_page.dart';
 import 'services/group_service.dart';
 import 'services/backend_com_service.dart';
+import 'services/contact_sync_service.dart';
 import 'services/diagnostic_service.dart';
+import 'utils/app_logger.dart';
 import 'group_details_page.dart';
 import 'main.dart'; // To access storageService
 import 'models/group_member_input.dart';
@@ -22,6 +24,7 @@ class _HomePageState extends State<HomePage> {
   String? profId;
   String? backendUrl;
   List<Map<String, dynamic>> groups = [];
+  bool _isSyncingGroups = false; // Track manual group sync operation
 
   @override
   void initState() {
@@ -151,6 +154,78 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  /// Manual group sync triggered by user from Settings dialog (FEAT-GRP007)
+  ///
+  /// Reuses existing refreshGroups() API from DES-GRP006 and
+  /// contact sync from DES-CNT001. Shows loading/success/error
+  /// feedback to user.
+  Future<void> _handleGroupSync() async {
+    setState(() {
+      _isSyncingGroups = true;
+    });
+
+    try {
+      logger.info('[MANUAL SYNC] User initiated group sync');
+
+      // Call existing refresh API (DES-GRP006)
+      // This automatically updates Hive storage via _syncGroupsToHive()
+      final response = await BackendComService.instance.refreshGroups();
+
+      if (response['status'] == 'success') {
+        logger.info('[MANUAL SYNC] Groups refreshed successfully');
+
+        // Re-sync contact names (DES-CNT001)
+        try {
+          final groups = await storageService.getAllGroups();
+          final contactSync = ContactSyncService();
+          await contactSync.initialize();
+
+          final contactResult = await contactSync.syncContactsForGroups(groups);
+          logger.info(
+            '[MANUAL SYNC] Contact sync: ${contactResult['matched']}/'
+            '${contactResult['total']} matched',
+          );
+        } catch (e) {
+          logger.error('[MANUAL SYNC ERROR] Contact sync failed: $e');
+          // Don't fail the main sync if contact sync fails
+        }
+
+        if (mounted) {
+          final groupCount = (response['group_list'] as List?)?.length ?? 0;
+          showMessageInStatus(
+            "success",
+            "Groups synced successfully ($groupCount groups)",
+          );
+
+          Navigator.pop(context);
+          await _fetchGroups();
+        }
+      } else {
+        logger.warning('[MANUAL SYNC] Sync returned non-success status');
+        if (mounted) {
+          showMessageInStatus("error", "Sync failed. Please try again.");
+        }
+      }
+    } on Exception catch (e) {
+      logger.error('[MANUAL SYNC ERROR] Sync failed: $e');
+
+      if (mounted) {
+        if (e.toString().contains('No network') ||
+            e.toString().contains('Failed host lookup')) {
+          showMessageInStatus("error", "Check your connection and try again");
+        } else if (!e.toString().contains('Session expired')) {
+          showMessageInStatus("error", "Sync failed. Please try again.");
+        }
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSyncingGroups = false;
+        });
+      }
+    }
+  }
+
   void _showSettingsDialog() {
     final TextEditingController urlController = TextEditingController(
       text: storageService.getNgrokUrl() ?? "",
@@ -180,6 +255,30 @@ class _HomePageState extends State<HomePage> {
                 },
                 icon: const Icon(Icons.upload_file),
                 label: const Text('Upload Diagnostics'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isSyncingGroups
+                    ? null
+                    : () async {
+                        await _handleGroupSync();
+                      },
+                icon: _isSyncingGroups
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.white,
+                          ),
+                        ),
+                      )
+                    : const Icon(Icons.sync),
+                label: Text(_isSyncingGroups ? 'Syncing...' : 'Sync Groups'),
               ),
             ),
           ],
@@ -250,9 +349,7 @@ class _HomePageState extends State<HomePage> {
               if (value == 'profile') {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const ProfilePage(),
-                  ),
+                  MaterialPageRoute(builder: (context) => const ProfilePage()),
                 );
               } else if (value == 'debug_logs') {
                 Navigator.push(
