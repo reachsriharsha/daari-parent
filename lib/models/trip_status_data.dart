@@ -29,16 +29,6 @@ class TripStatusData {
     return DateFormat('MMM dd, HH:mm:ss').format(timestamp);
   }
 
-  /// Get formatted location string
-  String get formattedLocation {
-    return '${latitude.toStringAsFixed(6)}, ${longitude.toStringAsFixed(6)}';
-  }
-
-  /// Get short formatted location string (4 decimals)
-  String get shortLocation {
-    return '${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}';
-  }
-
   /// Create from trip update data
   factory TripStatusData.fromTripUpdate({
     required String eventType,
@@ -91,6 +81,6 @@ class TripStatusData {
 
   @override
   String toString() {
-    return 'TripStatusData(event: $eventType, time: $formattedTime, location: $shortLocation)';
+    return 'TripStatusData(event: $eventType, time: $formattedTime)';
   }
 }

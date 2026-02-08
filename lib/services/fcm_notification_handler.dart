@@ -298,7 +298,7 @@ class FCMNotificationHandler {
         // Show status message anyway
         showMessageInStatus(
           'info',
-          '${updateData.displayEventType}: ${updateData.latitude.toStringAsFixed(4)}, ${updateData.longitude.toStringAsFixed(4)}',
+          '${updateData.displayEventType}: update received',
         );
         return;
       }

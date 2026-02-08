@@ -41,8 +41,7 @@ class TripViewingState {
       isTripActive: true,
       currentLocation: startLocation,
       lastEventType: 'trip_started',
-      lastEventDetails:
-          'Trip started at ${startLocation.latitude.toStringAsFixed(6)}, ${startLocation.longitude.toStringAsFixed(6)}',
+      lastEventDetails: 'Trip started',
     );
   }
 
@@ -111,8 +110,7 @@ class TripViewingState {
       currentLocation: point,
       lastUpdateTime: DateTime.now(),
       lastEventType: eventType ?? 'trip_updated',
-      lastEventDetails:
-          'Updated at ${point.latitude.toStringAsFixed(6)}, ${point.longitude.toStringAsFixed(6)}',
+      lastEventDetails: 'Location updated',
     );
   }
 

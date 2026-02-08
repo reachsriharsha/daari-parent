@@ -64,29 +64,6 @@ class TripStatusWidget extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-
-          // Location coordinates
-          Row(
-            children: [
-              Icon(
-                Icons.location_on_outlined,
-                color: _getTextColor(statusData!).withOpacity(0.7),
-                size: 16,
-              ),
-              const SizedBox(width: 4),
-              Expanded(
-                child: Text(
-                  'Lat/Lng: ${statusData!.formattedLocation}',
-                  style: TextStyle(
-                    color: _getTextColor(statusData!),
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-            ],
-          ),
-
           // Additional info (if available)
           if (statusData!.additionalInfo != null) ...[
             const SizedBox(height: 4),
