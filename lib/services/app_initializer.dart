@@ -25,12 +25,18 @@ class AppInitializer {
       await _initializeBackendComService();
 
       // 3. Initialize Firebase Core (required for FCM and Auth)
-      await _initializeFirebase();
+      final firebaseInitialized = await _initializeFirebase();
 
-      // 3. Initialize FCM Service
-      await _initializeFCM();
+      // 4. Initialize FCM Service only if Firebase is ready
+      if (firebaseInitialized) {
+        await _initializeFCM();
+      } else {
+        logger.warning(
+          '[APP INIT] Skipping FCM initialization - Firebase not available',
+        );
+      }
 
-      // 4. Initialize TTS Announcement Service
+      // 5. Initialize TTS Announcement Service
       await _initializeAnnouncement();
 
       logger.info('[APP INIT] All services initialized successfully');
@@ -69,20 +75,22 @@ class AppInitializer {
   }
 
   /// Initialize Firebase Core
-  static Future<void> _initializeFirebase() async {
+  /// Returns true if Firebase is ready, false otherwise
+  static Future<bool> _initializeFirebase() async {
     try {
       logger.info('[APP INIT] Initializing Firebase...');
 
       // Only initialize if not already initialized
       if (Firebase.apps.isEmpty) {
-        await Firebase.initializeApp(
+        /*await Firebase.initializeApp(
           options: const FirebaseOptions(
             apiKey: "AIzaSyAwierriEkBCarzpDCbLLzoBQPoEO_Uiro",
             appId: "1:192909758501:android:0d216829daceeca0caefcc",
             messagingSenderId: "192909758501",
             projectId: "otptest1-cbe83",
           ),
-        );
+        ); */
+        await Firebase.initializeApp();
         logger.info('[APP INIT] Firebase initialized');
       } else {
         logger.info('[APP INIT] Firebase already initialized');
@@ -91,9 +99,12 @@ class AppInitializer {
       // Register background message handler
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
       logger.info('[APP INIT] FCM background handler registered');
+
+      return true; // Firebase is ready
     } catch (e) {
       logger.error('[APP INIT ERROR] Firebase initialization failed: $e');
       // Don't rethrow - app can work without FCM
+      return false; // Firebase failed
     }
   }
 
