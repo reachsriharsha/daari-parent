@@ -2,7 +2,7 @@
 
 ## Overview
 
-Flutter-based Android application for parents to track school van location in real-time. Receives push notifications, displays live map, and provides proximity announcements.
+Flutter-based Android application for parents to track school van location in real-time. Receives push notifications, displays live map, and provides dual proximity announcements (home + destination). Features include multi-group tracking, contact synchronization with smart permissions, user profile management with home address, comprehensive diagnostics with ZIP export, and 3-tier optimized trip loading (DES-TRP001).
 
 ## Phone Number Normalization Design (Proposed)
 
@@ -182,7 +182,7 @@ Currently, both daari-c and daari-parent apps pass phone numbers from contacts a
 
 #### `lib/main.dart`
 
-Application entry point. Initializes all services, sets up global singletons (storageService, tripViewerControllers registry), and configures app lifecycle observers. Routes to LoginPage or HomePage based on session state.
+Application entry point with lifecycle management. Initializes all services via AppInitializer, sets up global singletons (storageService, tripViewerControllers registry), configures app lifecycle observers (WidgetsBindingObserver) for DES-GRP006 group refresh on app resume, and routes to LoginPage or HomePage based on session state.
 
 #### `lib/constants.dart`
 
@@ -220,7 +220,7 @@ User preferences and settings management (wrapper around shared_preferences pack
 
 #### `lib/controllers/trip_viewer_controller.dart`
 
-State management for individual group trip viewing. Maintains immutable TripViewingState, processes FCM trip updates, handles trip lifecycle (start/update/finish), manages proximity announcements, and coordinates map marker/polyline updates.
+State management for individual group trip viewing with DES-TRP001 3-tier loading. Maintains immutable TripViewingState, processes FCM trip updates (start/update/finish), handles trip lifecycle with wakelock management, manages dual proximity announcements (home + destination), coordinates map marker/polyline updates, implements 3-tier loading (in-memory → Hive → backend), and caches group destination and name for announcements.
 
 ### Models
 
@@ -232,21 +232,29 @@ Hive model for Group entity. Contains group_id, group_name, destination coordina
 
 Input model for creating group members. Contains name and phone number (normalized format) for API requests.
 
+#### `lib/models/group_member_name.dart` / `group_member_name.g.dart`
+
+Hive model (TypeId: 5) for contact sync. Maps phone numbers to contact names from device contacts, enabling display of names instead of phone numbers in group member lists. Used by ContactSyncService.
+
+#### `lib/models/user_profile.dart` / `user_profile.g.dart`
+
+Hive model (TypeId: 10) for user profile data. Stores profId, phoneNumber, firstName, lastName, email, and lastUpdated timestamp. Provides fullName getter and isComplete validation.
+
 #### `lib/models/app_settings.dart` / `app_settings.g.dart`
 
-Hive model for app configuration. Stores backend URL, FCM token, user session data, and app-level preferences with generated adapter.
+Hive model (TypeId: 2) for app configuration. Stores backend URL, FCM token, user session data (idToken, profId, firstName, lastName, email), location permissions, and app-level preferences with generated adapter.
 
 #### `lib/models/trip_settings.dart` / `trip_settings.g.dart`
 
-Hive model for trip configuration per group. Stores home location coordinates, notification preferences, announcement settings with generated adapter.
+Hive model (TypeId: 1) for trip configuration per group. Stores home location coordinates, notification preferences, announcement settings with generated adapter.
 
 #### `lib/models/location_point.dart` / `location_point.g.dart`
 
-Hive model for cached location data. Stores latitude, longitude, timestamp for offline viewing with generated adapter.
+Hive model (TypeId: 0) for cached location data. Stores latitude, longitude, timestamp for offline viewing with generated adapter.
 
 #### `lib/models/trip_viewing_state.dart`
 
-Immutable state class for trip visualization. Contains trip name, start location, route points list, start time, and active status. Provides methods to create new instances with updated data.
+Immutable state class for trip visualization. Contains trip name, start location, route points list, start time, active status, and final location. Provides methods to create new instances with updated data (addPoint with eventType, finish with finalLocation).
 
 #### `lib/models/trip_update_data.dart`
 
@@ -282,25 +290,41 @@ Hive-based data persistence layer. Manages groups box, app settings box, trip se
 
 Firebase Cloud Messaging setup and token management. Handles FCM token generation, registration with backend, token refresh, and permission requests.
 
+#### `lib/services/fcm_service.dart`
+
+Firebase Cloud Messaging token management. Handles FCM token generation, registration with backend, token refresh, permission requests, and DES-GRP006 integration for group refresh triggers.
+
 #### `lib/services/fcm_notification_handler.dart`
 
-FCM message processing pipeline. Routes messages to appropriate TripViewerController based on group_id, handles foreground/background/terminated states, and manages notification channel creation.
+FCM message processing pipeline. Routes messages to appropriate TripViewerController based on group_id, handles foreground/background/terminated states, manages notification channel creation, and implements DES-GRP006 group refresh on app resume.
 
-#### `lib/services/notification_service.dart`
+#### `lib/services/notification_service.dart` (alias: `audio_notification_service.dart`)
 
-Local notification display using flutter_local_notifications. Creates notification channels (tripStart, tripUpdate, tripEnd), shows notifications with appropriate priority and sound settings.
+Local notification display using flutter_local_notifications. Creates notification channels (tripStart, tripUpdate, tripEnd), shows notifications with appropriate priority and sound settings. Also includes background audio playback using just_audio for trip started/finished sounds.
 
 #### `lib/services/announcement_service.dart`
 
-Text-to-speech proximity announcements. Announces van distance at thresholds (1km, 500m, 200m, 100m), prevents duplicate announcements, and handles TTS initialization and language settings.
+Text-to-speech dual proximity announcements. Announces van distance at thresholds for both home (1km, 500m, 200m, 100m) and destination (1km, 500m, 200m, 100m, 50m reached), prevents duplicate announcements using flags, and handles TTS initialization and language settings.
+
+#### `lib/services/contact_sync_service.dart`
+
+Contact name synchronization with smart permission management. Syncs device contact names with group member phone numbers, stores in Hive (GroupMemberName model), reuses existing contact permission grants to avoid duplicate dialogs, handles permission denial gracefully, and provides match statistics.
+
+#### `lib/services/profile_service.dart`
+
+User profile management with caching. Fetches profile from backend, caches in Hive (UserProfile model), updates profile data (firstName, lastName, email), supports home address for proximity calculations, and provides profile completeness validation.
+
+#### `lib/services/user_service.dart`
+
+User-related operations and authentication state. Updates user home coordinates with address and place name, syncs to backend, manages authentication status checks, and retrieves current profile ID.
 
 #### `lib/services/device_info_service.dart`
 
-Device information collection for diagnostics. Gathers device model, OS version, app version, and device identifiers for troubleshooting.
+Device information collection for diagnostics and authentication (DES-AUTH001). Gathers device model, OS version, app version, platform, and device identifiers for troubleshooting and backend logging.
 
 #### `lib/services/diagnostic_service.dart`
 
-Diagnostic data export and logging. Collects app state, Hive data, FCM token, active trips, and generates diagnostic reports for support.
+Diagnostic ZIP creation for troubleshooting. Collects Hive data (groups, settings sanitized without tokens), log files, device and app info, creates ZIP archive, and provides file for sharing with support.
 
 ### Screens
 
@@ -318,11 +342,15 @@ Remove members from group UI. Multi-select interface for members, prevents remov
 
 #### `lib/screens/delete_group_dialog.dart`
 
-Confirmation dialog for group deletion. Shows warning, confirms action, and triggers group deletion with local cache cleanup.
+Confirmation dialog for group deletion with name verification. Shows warning, requires typing group name to confirm, and triggers group deletion with local cache cleanup.
+
+#### `lib/screens/profile_page.dart`
+
+User profile viewing and editing UI. Displays current profile (name, email, phone), allows editing first name, last name, and email with validation, shows confirmation dialog for changes, saves to backend and Hive cache, and provides home address management.
 
 #### `lib/screens/log_viewer_screen.dart`
 
-In-app log viewer for debugging. Displays application logs, allows filtering, and provides export functionality.
+In-app log viewer for debugging. Displays application logs with filtering by level (DEBUG, INFO, WARNING, ERROR), shows file list sorted by date, allows sharing logs, supports clearing all logs, and provides real-time log viewing.
 
 ### Utilities
 
@@ -535,15 +563,16 @@ class TripViewingState {
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 4. Proximity Announcement System
+### 4. Dual Proximity Announcement System
 
-Audio alerts when van approaches home:
+Audio alerts when van approaches both home location AND destination (school):
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│              Proximity Detection Logic                       │
+│         Dual Proximity Detection Logic                      │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
+│  A. HOME PROXIMITY                                          │
 │  Distance from Home         Announcement                    │
 │  ─────────────────         ────────────────                │
 │  > 1000m                   (none)                          │
@@ -558,7 +587,24 @@ Audio alerts when van approaches home:
 │  ├── _announced200m: bool                                  │
 │  └── _announced100m: bool                                  │
 │                                                             │
-│  Reset on trip finish                                       │
+│  B. DESTINATION PROXIMITY                                   │
+│  Distance from Destination  Announcement                    │
+│  ─────────────────────────  ────────────────                │
+│  > 1000m                    (none)                         │
+│  ≤ 1000m                    "Van approaching destination"  │
+│  ≤ 500m                     "Van near destination"         │
+│  ≤ 200m                     "Van close to destination"     │
+│  ≤ 100m                     "Van arriving at destination"  │
+│  ≤ 50m                      "Van has reached destination"  │
+│                                                             │
+│  Flags to prevent repeat:                                   │
+│  ├── _announcedDest1km: bool                               │
+│  ├── _announcedDest500m: bool                              │
+│  ├── _announcedDest200m: bool                              │
+│  ├── _announcedDest100m: bool                              │
+│  └── _announcedDestReached: bool                           │
+│                                                             │
+│  Reset ALL flags on trip finish                             │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -566,20 +612,42 @@ Audio alerts when van approaches home:
 **Implementation**:
 
 ```dart
-void _checkProximityAndAnnounce(LatLng driverLocation) {
-  if (homeLocation == null) return;
+// Home proximity
+void _checkProximityToHome(double lat, double lng) {
+  final homeCoords = _getHomeCoordinates();
+  if (homeCoords == null) return;
 
-  final distance = Geolocator.distanceBetween(
-    driverLocation.latitude, driverLocation.longitude,
-    homeLocation.latitude, homeLocation.longitude,
+  final distance = DistanceCalculator.calculateDistance(
+    lat, lng, homeCoords.latitude, homeCoords.longitude,
   );
 
   if (distance <= 100 && !_announced100m) {
     _announced100m = true;
     announcementService.announce("Van is arriving");
   } else if (distance <= 200 && !_announced200m) {
-    // ...
+    _announced200m = true;
+    announcementService.announce("Van is 200 meters away");
   }
+  // ... similar for 500m and 1km
+}
+
+// Destination proximity
+Future<void> _checkProximityToDestination(double lat, double lng) async {
+  final destCoords = await _getGroupDestination();
+  if (destCoords == null) return;
+
+  final distance = DistanceCalculator.calculateDistance(
+    lat, lng, destCoords.latitude, destCoords.longitude,
+  );
+
+  if (distance <= 50 && !_announcedDestReached) {
+    _announcedDestReached = true;
+    announcementService.announce("Van has reached destination");
+  } else if (distance <= 100 && !_announcedDest100m) {
+    _announcedDest100m = true;
+    announcementService.announce("Van arriving at destination");
+  }
+  // ... similar for 200m, 500m, 1km
 }
 ```
 
@@ -601,6 +669,70 @@ void _checkProximityAndAnnounce(LatLng driverLocation) {
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+### 6. Contact Sync Service with Smart Permissions
+
+Automatically syncs device contact names with group member phone numbers for better UX:
+
+**Smart Permission Strategy**:
+
+```dart
+Future<bool> requestPermission() async {
+  // Check if already granted (e.g., from SelectContactsPage)
+  PermissionStatus status = await Permission.contacts.status;
+
+  if (status.isGranted) {
+    logger.info('[CONTACTS] Permission already granted (reusing existing)');
+    return true; // ✅ No dialog shown - already granted!
+  }
+
+  // Only request if not yet granted
+  if (status.isDenied) {
+    status = await Permission.contacts.request();
+  }
+
+  return status.isGranted;
+}
+```
+
+**How It Works**:
+
+1. User selects contacts in `SelectContactsPage` during group creation → grants contact permission
+2. Later, app needs to sync contact names for group members → `ContactSyncService` checks permission
+3. If already granted, proceeds without showing dialog again (smart reuse)
+4. Only requests permission if not yet granted or permanently denied
+5. Gracefully handles permanent denial → shows phone numbers instead of names
+
+**Data Flow**:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│              Contact Sync Process                            │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  1. Group loaded from backend                               │
+│     └── Contains member phone numbers (normalized)          │
+│                                                             │
+│  2. ContactSyncService.syncContactsForGroups([group])       │
+│     ├── Check/request contacts permission (smart)           │
+│     ├── Read all device contacts                            │
+│     └── Match phone numbers (after normalization)           │
+│                                                             │
+│  3. Store matches in Hive                                   │
+│     └── GroupMemberName(phone, contactName) [TypeId: 5]     │
+│                                                             │
+│  4. UI displays contact names instead of phone numbers      │
+│     └── Fallback to phone number if no match               │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Benefits**:
+
+- No duplicate permission dialogs (reuses grants)
+- Better UX with names instead of phone numbers
+- Graceful degradation if permission denied
+- Automatic re-sync when groups change
 
 ## Data Flow: Trip Notification
 
@@ -811,25 +943,140 @@ sequenceDiagram
     end
 ```
 
+## Design Patterns & Specifications
+
+### DES-TRP001: 3-Tier Trip Loading Optimization
+
+**Strategy**: Load active trip data with progressive fallback for optimal performance.
+
+**Tiers:**
+
+1. **Tier 1 - In-Memory Check** (0ms): Return immediately if trip already loaded in `_viewingState.isTripActive`
+2. **Tier 2 - Hive Cache** (<50ms): Load from local storage with freshness validation
+3. **Tier 3 - Backend API** (<500ms): Fetch from backend if cache stale/missing
+
+**Implementation:**
+
+```dart
+Future<void> loadActiveTrip() async {
+  // Tier 1: In-memory
+  if (_viewingState.isTripActive) {
+    logger.debug('[DES-TRP001] Tier 1: In-memory hit');
+    return;
+  }
+
+  // Tier 2: Hive cache
+  final cachedTrip = await _storageService.getActiveTripForGroup(groupId);
+  if (cachedTrip != null && cachedTrip.isFresh) {
+    logger.debug('[DES-TRP001] Tier 2: Hive cache hit');
+    _viewingState = cachedTrip.toViewingState();
+    return;
+  }
+
+  // Tier 3: Backend API
+  logger.debug('[DES-TRP001] Tier 3: Backend fetch');
+  final apiTrip = await BackendComService.instance.fetchActiveTrip(groupId);
+  if (apiTrip != null) {
+    _viewingState = apiTrip.toViewingState();
+    await _storageService.cacheTrip(apiTrip);
+  }
+}
+```
+
+### DES-GRP006: Group Refresh on App Resume
+
+**Strategy**: Detect group membership changes via FCM and refresh on app resume.
+
+**Flow:**
+
+1. Backend sends `group_refresh` FCM message when group membership changes
+2. App stores pending refresh flag in FCMNotificationHandler
+3. App lifecycle observer detects app resume (`didChangeAppLifecycleState`)
+4. On resume, check pending flag and trigger group refresh from backend
+5. Sync all groups to Hive storage
+
+**Implementation:**
+
+```dart
+// In main.dart
+@override
+void didChangeAppLifecycleState(AppLifecycleState state) {
+  if (state == AppLifecycleState.resumed) {
+    logger.debug('[DES-GRP006] App resumed - checking for group refresh');
+    FCMNotificationHandler.checkPendingGroupRefresh();
+  }
+}
+
+// In FCMNotificationHandler
+static void checkPendingGroupRefresh() async {
+  if (_pendingGroupRefresh) {
+    _pendingGroupRefresh = false;
+    await BackendComService.instance.refreshAllGroups();
+  }
+}
+```
+
+### DES-AUTH001: Device Info Collection
+
+**Purpose**: Send device and app information during login for backend tracking and diagnostics.
+
+**Data Collected:**
+
+- App version (from package_info_plus)
+- Phone model (from device_info_plus)
+- OS version (Android API level)
+- Platform ("android")
+
+**Usage**: Included in login request body to `/auth/login` endpoint.
+
+## Hive TypeIds Reference
+
+All Hive models must have unique TypeIds to avoid conflicts. Current assignments:
+
+| TypeId | Model           | File                   | Purpose                         |
+| ------ | --------------- | ---------------------- | ------------------------------- |
+| 0      | LocationPoint   | location_point.dart    | Cached location data for trips  |
+| 1      | TripSettings    | trip_settings.dart     | Per-group trip configuration    |
+| 2      | AppSettings     | app_settings.dart      | App-level settings and session  |
+| 3      | Group           | group.dart             | Group entity with destination   |
+| 5      | GroupMemberName | group_member_name.dart | Contact sync phone→name mapping |
+| 10     | UserProfile     | user_profile.dart      | User profile with home address  |
+
+**Important**: TypeIds 4, 6-9 are reserved for future use. Always check existing TypeIds before adding new models to avoid conflicts.
+
 ## Dependencies
 
-| Package                       | Purpose                      |
-| ----------------------------- | ---------------------------- |
-| `firebase_auth`               | Phone OTP authentication     |
-| `firebase_messaging`          | Push notifications           |
-| `google_maps_flutter`         | Map visualization            |
-| `geolocator`                  | Distance calculations        |
-| `hive` / `hive_flutter`       | Local caching                |
-| `flutter_tts`                 | Text-to-speech announcements |
-| `flutter_local_notifications` | Local notification display   |
+| Package                       | Purpose                          |
+| ----------------------------- | -------------------------------- |
+| `firebase_auth`               | Phone OTP authentication         |
+| `firebase_messaging`          | Push notifications (FCM)         |
+| `google_maps_flutter`         | Map visualization                |
+| `geolocator`                  | Distance calculations            |
+| `hive` / `hive_flutter`       | Local caching and persistence    |
+| `flutter_tts`                 | Text-to-speech announcements     |
+| `flutter_local_notifications` | Local notification display       |
+| `flutter_contacts`            | Contact access with permissions  |
+| `permission_handler`          | Smart permission management      |
+| `just_audio`                  | Background audio playback        |
+| `wakelock_plus`               | Keep screen on during trips      |
+| `device_info_plus`            | Device information (DES-AUTH001) |
+| `package_info_plus`           | App version info                 |
+| `archive`                     | ZIP creation for diagnostics     |
+| `share_plus`                  | Share logs and diagnostics       |
+| `url_launcher`                | Launch phone calls, links        |
 
 ## Key Differences from Driver App
 
-| Aspect             | Driver App          | Parent App       |
-| ------------------ | ------------------- | ---------------- |
-| Location tracking  | Active (GPS)        | Passive (FCM)    |
-| Trip control       | Start/Update/Finish | View only        |
-| Background service | Yes (location)      | No (FCM only)    |
-| Notifications      | Sends via backend   | Receives via FCM |
-| Multi-group trips  | One at a time       | View multiple    |
-| Announcements      | None                | Proximity TTS    |
+| Aspect             | Driver App            | Parent App                     |
+| ------------------ | --------------------- | ------------------------------ |
+| Location tracking  | Active (GPS)          | Passive (FCM)                  |
+| Trip control       | Start/Update/Finish   | View only                      |
+| Background service | Yes (location)        | No (FCM only)                  |
+| Notifications      | Sends via backend     | Receives via FCM               |
+| Multi-group trips  | One at a time         | View multiple simultaneously   |
+| Announcements      | None                  | Dual proximity TTS (home+dest) |
+| Contact sync       | No                    | Yes (smart permissions)        |
+| Profile management | No                    | Yes (with home address)        |
+| Diagnostics        | Basic logging         | Full ZIP export                |
+| Wakelock           | Always on during trip | On during trip, off on finish  |
+| DES-TRP001 loading | Not applicable        | 3-tier optimization            |
