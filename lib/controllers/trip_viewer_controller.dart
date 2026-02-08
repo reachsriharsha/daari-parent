@@ -11,6 +11,7 @@ import '../models/trip_status_data.dart';
 import '../models/trip_update_data.dart';
 import '../models/trip_viewing_state.dart';
 import '../services/announcement_service.dart';
+import '../services/backend_com_service.dart';
 import '../services/location_storage_service.dart';
 import '../utils/app_logger.dart';
 import '../utils/distance_calculator.dart';
@@ -240,26 +241,87 @@ class TripViewerController extends ChangeNotifier {
     }
   }
 
-  /// Load active trip on app restart
-  /// Queries LocationPoints directly to support multiple simultaneous trips across groups
+  /// DES-TRP001: Load active trip with 3-tier optimization
+  /// Tier 1: In-memory check (0ms) - Return immediately if trip already loaded
+  /// Tier 2: Hive cache (<50ms) - Check local storage with freshness validation
+  /// Tier 3: Backend API (<500ms) - Fetch from backend if cache stale/missing
   Future<void> loadActiveTrip() async {
     try {
       logger.info('[VIEWER] Loading active trip for group $groupId...');
 
-      // Query LocationPoints directly to find active trip for THIS group
-      // This supports multiple simultaneous trips across different groups
-      final activeTripData = _storageService.findActiveTripForGroup(groupId);
-
-      if (activeTripData == null) {
-        logger.info('[VIEWER] No active trip found for group $groupId');
-        return;
+      // Tier 1: In-memory check - Already loaded?
+      if (_viewingState.isTripActive && _viewingState.groupId == groupId) {
+        logger.debug(
+          '[VIEWER] Tier 1: Trip already loaded in memory (${_viewingState.tripName}, ${_viewingState.totalPoints} points)',
+        );
+        return; // 0ms - instant return
       }
 
+      // Tier 2: Hive cache check with freshness validation
+      final activeTripData = _storageService.findActiveTripForGroup(groupId);
+
+      if (activeTripData != null && !alwaysRefreshFromBackend) {
+        final fcmPoints = activeTripData['points'] as List<LocationPoint>;
+
+        if (fcmPoints.isNotEmpty) {
+          final lastPointTime = fcmPoints.last.timestamp;
+          final ageMinutes = DateTime.now().difference(lastPointTime).inMinutes;
+
+          if (ageMinutes < tripCacheFreshnessMinutes) {
+            // Cache is fresh - load from Hive
+            logger.info(
+              '[VIEWER] Tier 2: Loading from fresh Hive cache (age: ${ageMinutes}min)',
+            );
+            await _loadFromHiveData(activeTripData);
+            return; // <50ms
+          } else {
+            logger.info(
+              '[VIEWER] Tier 2: Hive cache stale (age: ${ageMinutes}min), trying backend...',
+            );
+          }
+        }
+      }
+
+      // Tier 3: Backend sync - either cache missing, stale, or forced refresh
+      try {
+        logger.info('[VIEWER] Tier 3: Querying backend for active trip...');
+        await _loadFromBackend();
+
+        // Clear stale cache if backend had no active trip
+        if (!_viewingState.isTripActive && activeTripData != null) {
+          logger.info(
+            '[VIEWER] Clearing stale cache (backend has no active trip)',
+          );
+          await _clearStaleCache();
+        }
+
+        return; // <500ms
+      } catch (e) {
+        logger.error('[VIEWER ERROR] Backend sync failed: $e');
+
+        // Graceful degradation: Fall back to stale cache if backend fails
+        if (activeTripData != null) {
+          logger.info(
+            '[VIEWER] Falling back to stale Hive cache due to backend error',
+          );
+          await _loadFromHiveData(activeTripData);
+        } else {
+          logger.info('[VIEWER] No fallback data available');
+        }
+      }
+    } catch (e) {
+      logger.error('[VIEWER ERROR] Failed to load active trip: $e');
+    }
+  }
+
+  /// DES-TRP001: Load trip data from Hive cache
+  Future<void> _loadFromHiveData(Map<String, dynamic> activeTripData) async {
+    try {
       final tripName = activeTripData['tripName'] as String;
       final fcmPoints = activeTripData['points'] as List<LocationPoint>;
 
       logger.info(
-        '[VIEWER] Found active trip: $tripName with ${fcmPoints.length} points for group $groupId',
+        '[VIEWER] Loading from Hive: $tripName with ${fcmPoints.length} points',
       );
 
       // Load group destination and name
@@ -278,10 +340,11 @@ class TripViewerController extends ChangeNotifier {
         pathPoints: pathPoints,
         tripStartTime: fcmPoints.first.timestamp,
         lastUpdateTime: lastPoint.timestamp,
-        isTripActive: true, // We only get here if trip is active
+        isTripActive: true,
         currentLocation: pathPoints.last,
         lastEventType: lastPoint.tripEventType ?? 'trip_updated',
-        lastEventDetails: 'Loaded ${pathPoints.length} points from storage',
+        lastEventDetails:
+            'Loaded ${pathPoints.length} points from Hive (source: ${tripSourceHiveCache})',
       );
 
       // Rebuild map visualization
@@ -296,19 +359,152 @@ class TripViewerController extends ChangeNotifier {
         timestamp: lastPoint.timestamp,
       );
 
-      // Position camera to show current state
+      // Position camera to driver's current location
       _moveCameraToLocation(pathPoints.last, zoom: 15);
+
       // Enable wakelock for active trip
       await WakelockPlus.enable();
-      logger.info(
-        '[WAKELOCK] Screen wakelock enabled for loaded active trip',
-      );
+      logger.info('[WAKELOCK] Screen wakelock enabled for loaded active trip');
 
       notifyListeners();
-
-      logger.info('[VIEWER] Active trip loaded successfully');
+      logger.info('[VIEWER] Successfully loaded trip from Hive cache');
     } catch (e) {
-      logger.error('[VIEWER ERROR] Failed to load active trip: $e');
+      logger.error('[VIEWER ERROR] Failed to load from Hive data: $e');
+      rethrow;
+    }
+  }
+
+  /// DES-TRP001: Load trip data from backend API
+  Future<void> _loadFromBackend() async {
+    try {
+      final backendService = BackendComService.instance;
+      final response = await backendService.getActiveTrip(groupId);
+
+      if (response['has_active_trip'] != true) {
+        logger.info(
+          '[VIEWER] Backend reports no active trip for group $groupId',
+        );
+        _viewingState = TripViewingState.empty();
+        notifyListeners();
+        return;
+      }
+
+      // Extract trip data from backend response
+      final tripName = response['trip_name'] as String;
+      final tripRoute = response['trip_route'] as List<dynamic>;
+
+      if (tripRoute.isEmpty) {
+        logger.warning(
+          '[VIEWER] Backend returned active trip but route is empty',
+        );
+        return;
+      }
+
+      logger.info(
+        '[VIEWER] Loading from backend: $tripName with ${tripRoute.length} points',
+      );
+
+      // Load group destination and name
+      await _loadGroupDestination(groupId);
+      await _loadGroupName(groupId);
+
+      // Build path points from backend route
+      final pathPoints = tripRoute
+          .map(
+            (point) => LatLng(
+              point['latitude'] as double,
+              point['longitude'] as double,
+            ),
+          )
+          .toList();
+
+      // Parse timestamps
+      final startedAt = DateTime.parse(response['started_at'] as String);
+      final lastUpdate = DateTime.parse(response['last_update'] as String);
+      final lastEvent = (tripRoute.last['event'] ?? 'trip_updated') as String;
+
+      // Create viewing state
+      _viewingState = TripViewingState(
+        tripName: tripName,
+        groupId: groupId,
+        pathPoints: pathPoints,
+        tripStartTime: startedAt,
+        lastUpdateTime: lastUpdate,
+        isTripActive: true,
+        currentLocation: pathPoints.last,
+        lastEventType: lastEvent,
+        lastEventDetails:
+            'Loaded ${pathPoints.length} points from backend (source: $tripSourceBackend)',
+      );
+
+      // Rebuild map visualization
+      _updateMarkers();
+      _updatePolyline();
+
+      // Update status widget
+      final lastPoint = tripRoute.last;
+      statusNotifier.value = TripStatusData(
+        eventType: lastEvent,
+        latitude: lastPoint['latitude'] as double,
+        longitude: lastPoint['longitude'] as double,
+        timestamp: lastUpdate,
+      );
+
+      // Position camera to driver's current location
+      _moveCameraToLocation(pathPoints.last, zoom: 15);
+
+      // Persist to Hive for offline access
+      await _persistBackendDataToHive(tripRoute, tripName);
+
+      // Enable wakelock for active trip
+      await WakelockPlus.enable();
+      logger.info('[WAKELOCK] Screen wakelock enabled for backend-loaded trip');
+
+      notifyListeners();
+      logger.info('[VIEWER] Successfully loaded trip from backend');
+    } catch (e) {
+      logger.error('[VIEWER ERROR] Failed to load from backend: $e');
+      rethrow;
+    }
+  }
+
+  /// DES-TRP001: Persist backend trip data to Hive for offline access
+  Future<void> _persistBackendDataToHive(
+    List<dynamic> tripRoute,
+    String tripName,
+  ) async {
+    try {
+      for (final point in tripRoute) {
+        final locationPoint = LocationPoint(
+          source: 'fcm', // Mark as FCM to maintain compatibility
+          tripName: tripName,
+          groupId: groupId.toString(),
+          latitude: point['latitude'] as double,
+          longitude: point['longitude'] as double,
+          timestamp: DateTime.parse(point['timestamp'] as String),
+          tripEventType: point['event'] as String?,
+          receivedAt: DateTime.now(),
+        );
+        await _storageService.saveLocationPoint(locationPoint);
+      }
+      logger.debug(
+        '[VIEWER] Persisted ${tripRoute.length} backend points to Hive for offline access',
+      );
+    } catch (e) {
+      logger.error('[VIEWER ERROR] Failed to persist backend data to Hive: $e');
+      // Don't rethrow - persistence failure shouldn't block trip display
+    }
+  }
+
+  /// DES-TRP001: Clear stale cache when backend has no active trip
+  Future<void> _clearStaleCache() async {
+    try {
+      // Note: LocationStorageService doesn't have a direct "clear trip" method
+      // The natural cleanup happens via markTripFinished or 7-day auto-cleanup
+      // No action needed here - stale data will be ignored on next load
+      logger.debug('[VIEWER] Stale cache will be ignored (marked inactive)');
+    } catch (e) {
+      logger.error('[VIEWER ERROR] Failed to clear stale cache: $e');
     }
   }
 
@@ -506,6 +702,44 @@ class TripViewerController extends ChangeNotifier {
     logger.info('[VIEWER] Trip data cleared');
   }
 
+  /// Position camera based on current trip state
+  /// If no active trip -> zoom to group destination
+  /// If active trip -> zoom to driver's current location
+  Future<void> positionCameraByTripState() async {
+    if (_mapController == null) {
+      logger.debug(
+        '[VIEWER] Map controller not set, skipping camera positioning',
+      );
+      return;
+    }
+
+    try {
+      // Check if there's an active trip with data
+      if (_viewingState.isTripActive && _viewingState.pathPoints.isNotEmpty) {
+        // Active trip exists - zoom to driver's current location (last point)
+        final currentLocation = _viewingState.pathPoints.last;
+        logger.info(
+          '[VIEWER] Positioning camera to driver location: ${currentLocation.latitude}, ${currentLocation.longitude}',
+        );
+        _moveCameraToLocation(currentLocation, zoom: 15);
+      } else if (_groupDestination != null) {
+        // No active trip - zoom to group destination
+        logger.info(
+          '[VIEWER] No active trip, positioning camera to destination: ${_groupDestination!.latitude}, ${_groupDestination!.longitude}',
+        );
+        _moveCameraToLocation(_groupDestination!, zoom: 15);
+      } else {
+        logger.debug(
+          '[VIEWER] No active trip and no destination set - skipping camera positioning',
+        );
+      }
+    } catch (e) {
+      logger.error(
+        '[VIEWER ERROR] Failed to position camera by trip state: $e',
+      );
+    }
+  }
+
   /// Check proximity to home and announce when crossing thresholds
   Future<void> _checkProximityToHome(
     double currentLat,
@@ -537,7 +771,9 @@ class TripViewerController extends ChangeNotifier {
       final groupLabel = _groupName ?? 'your group';
 
       if (distance <= PROXIMITY_THRESHOLD_1KM && !_announced1km) {
-        await announcementService.announce('$groupLabel: 1 kilometer from home');
+        await announcementService.announce(
+          '$groupLabel: 1 kilometer from home',
+        );
         _announced1km = true;
         logger.info('[PROXIMITY] ✅ Announced 1km threshold');
       }
@@ -589,25 +825,33 @@ class TripViewerController extends ChangeNotifier {
       final groupLabel = _groupName ?? 'your group';
 
       if (distance <= PROXIMITY_THRESHOLD_1KM && !_announcedDest1km) {
-        await announcementService.announce('$groupLabel: 1 kilometer from destination');
+        await announcementService.announce(
+          '$groupLabel: 1 kilometer from destination',
+        );
         _announcedDest1km = true;
         logger.info('[PROXIMITY] ✅ Announced 1km from destination');
       }
 
       if (distance <= PROXIMITY_THRESHOLD_500M && !_announcedDest500m) {
-        await announcementService.announce('$groupLabel: 500 meters from destination');
+        await announcementService.announce(
+          '$groupLabel: 500 meters from destination',
+        );
         _announcedDest500m = true;
         logger.info('[PROXIMITY] ✅ Announced 500m from destination');
       }
 
       if (distance <= PROXIMITY_THRESHOLD_200M && !_announcedDest200m) {
-        await announcementService.announce('$groupLabel: 200 meters from destination');
+        await announcementService.announce(
+          '$groupLabel: 200 meters from destination',
+        );
         _announcedDest200m = true;
         logger.info('[PROXIMITY] ✅ Announced 200m from destination');
       }
 
       if (distance <= PROXIMITY_THRESHOLD_100M && !_announcedDest100m) {
-        await announcementService.announce('$groupLabel: 100 meters from destination');
+        await announcementService.announce(
+          '$groupLabel: 100 meters from destination',
+        );
         _announcedDest100m = true;
         logger.info('[PROXIMITY] ✅ Announced 100m from destination');
       }

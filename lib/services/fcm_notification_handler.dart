@@ -8,6 +8,7 @@ import '../models/trip_update_data.dart';
 import '../widgets/status_widget.dart';
 import '../utils/app_logger.dart';
 import 'announcement_service.dart';
+import 'audio_notification_service.dart';
 import 'backend_com_service.dart';
 import 'contact_sync_service.dart';
 
@@ -109,13 +110,29 @@ class FCMNotificationHandler {
 
       logger.debug('[FCM] Background message type: $type');
 
-      // For background messages, system handles notification display
-      // We only process trip_update silently (no notification)
-      if (type == 'trip_update') {
-        logger.debug(
-          '[FCM] Trip update in background - data saved for later retrieval',
+      // DES-TRP001: Save trip updates to Hive in background
+      // This ensures complete route data for Tier 2 (Hive cache) optimization
+      if (type == 'trip_started' ||
+          type == 'trip_updated' ||
+          type == 'trip_finished') {
+        logger.debug('[FCM] Saving trip data in background: $type');
+
+        // Parse and save to Hive - reuse existing logic
+        final updateData = TripUpdateData.fromFCM(data);
+        await _saveTripDataWithoutController(updateData);
+
+        // Play audio notification for trip start/finish
+        if (type == 'trip_started') {
+          logger.info('[FCM] Playing trip started audio notification');
+          await AudioNotificationService.instance.playTripStarted();
+        } else if (type == 'trip_finished') {
+          logger.info('[FCM] Playing trip finished audio notification');
+          await AudioNotificationService.instance.playTripFinished();
+        }
+
+        logger.info(
+          '[FCM] Background trip data saved to Hive for group ${updateData.groupId}',
         );
-        // Could save to Hive here for later UI update
       } else if (type == 'group_refresh') {
         // DES-GRP006: Handle group refresh in background
         logger.debug(

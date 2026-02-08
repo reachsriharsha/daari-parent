@@ -990,4 +990,83 @@ class BackendComService {
       // Don't throw - we still want to return the response
     }
   }
+
+  /// DES-TRP001: Get active trip for a group
+  ///
+  /// Queries backend for active trip details if one exists for the group.
+  /// Used for backend sync when parent app opens group details.
+  ///
+  /// [groupId] - ID of the group to check for active trips
+  ///
+  /// Returns:
+  /// - status: "success"
+  /// - has_active_trip: bool
+  /// - trip_name: string (if active trip exists)
+  /// - started_at: ISO timestamp (if active trip exists)
+  /// - last_update: ISO timestamp (if active trip exists)
+  /// - trip_route: array of {latitude, longitude, timestamp, event}
+  Future<Map<String, dynamic>> getActiveTrip(int groupId) async {
+    if (_baseUrl == null || _baseUrl!.isEmpty) {
+      logger.error('[ERROR] Backend URL is not set for getActiveTrip');
+      throw Exception("Backend URL is not set");
+    }
+
+    final idToken = await storageService.getIdToken();
+    if (idToken == null) {
+      throw Exception("Session expired. Please login again.");
+    }
+
+    final url = Uri.parse("$_baseUrl/api/groups/$groupId/active-trip");
+
+    logger.debug("[API Request] GET $url (active trip sync)");
+
+    try {
+      final response = await http.get(
+        url,
+        headers: {
+          "Authorization": "Bearer $idToken",
+          "Content-Type": "application/json",
+        },
+      );
+
+      logger.debug(
+        "[API Response Status] ${response.statusCode} Body: ${response.body}",
+      );
+
+      if (response.statusCode == 200) {
+        final responseData = jsonDecode(response.body);
+
+        if (responseData['has_active_trip'] == true) {
+          logger.debug(
+            '[ACTIVE TRIP] Found active trip for group $groupId: ${responseData['trip_name']}',
+          );
+        } else {
+          logger.debug('[ACTIVE TRIP] No active trip for group $groupId');
+        }
+
+        return responseData;
+      } else if (response.statusCode == 401) {
+        logger.error('[ERROR] Unauthorized (401) - Clearing session');
+        await storageService.clearSession();
+        throw Exception('Session expired. Please login again.');
+      } else if (response.statusCode == 403) {
+        logger.error('[ERROR] Forbidden (403) - Not authorized for this group');
+        throw Exception('Not authorized to view this group');
+      } else {
+        logger.error(
+          "Failed to get active trip: ${response.statusCode} ${response.body}",
+        );
+        throw Exception(
+          "Failed to get active trip: ${response.statusCode} ${response.body}",
+        );
+      }
+    } catch (e, stackTrace) {
+      logger.error(
+        '[ERROR] Exception getting active trip: $e',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
+  }
 }
